@@ -10,7 +10,7 @@ By leveraging the map's native **PVS (Potentially Visible Set)** and **BSP Tree*
 * **PVS Optimization**: Traverses the BSP tree to pinpoint the player's current leaf cluster and dynamically streams only visible geometry to the ray-caster.
 * **Continuous Streaming Loop**: Non-blocking Open3D visualizer that accepts live coordinate inputs and updates the point cloud at runtime.
 * **Realistic LiDAR Modeling**: Simulates custom horizontal/vertical fields of view.
-* **Telemetry Data Pipeline**: Collects accurate floating-point kinematics data via Momentum Mod's Panorama API.
+* **Telemetry Data Pipeline**: Either DLL injection or HTTP Requests.
 
 
 ## Prerequisites & Installation
