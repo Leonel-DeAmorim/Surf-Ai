@@ -15,6 +15,6 @@ By leveraging the map's native **PVS (Potentially Visible Set)** and **BSP Tree*
 
 ## Prerequisites & Installation
 -python 3.14.7
--websocket pip
+-Node
 
 
