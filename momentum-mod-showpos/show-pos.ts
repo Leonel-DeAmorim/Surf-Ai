@@ -1,5 +1,6 @@
 import { PanelHandler } from 'util/module-helpers';
 import { CustomizerPropertyType, registerHUDCustomizerComponent } from 'common/hud-customizer';
+import { getTextShadowFast } from 'common/hud-customizer';
 
 
 //Server 
