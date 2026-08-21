@@ -2,9 +2,44 @@ import { PanelHandler } from 'util/module-helpers';
 import { CustomizerPropertyType, registerHUDCustomizerComponent } from 'common/hud-customizer';
 import { getTextShadowFast } from 'common/hud-customizer';
 
+ GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
+
 
 //Server 
 const ServerPost = () => {
+
+let position = null;
+
+const cp = $.GetContextPanel();
+const children = cp.Children();
+
+if (children.length > 0) {
+    const showPosPanel = children[0];
+    const labels = showPosPanel.Children();
+
+    if (labels.length > 0) {
+        const posLabel = labels[0] as Label;
+
+        if (posLabel && posLabel.text.startsWith('Pos:')) {
+            const values = posLabel.text
+                .replace('Pos:', '')
+                .trim()
+                .split(/\s+/)
+                .map(Number);
+
+            if (values.length === 3 && values.every(Number.isFinite)) {
+                position = {
+                    x: values[0],
+                    y: values[1],
+                    z: values[2]
+                };
+            }
+        }
+    }
+}
+
+
+
     const angles = MomentumPlayerAPI.GetAngles();
     const velocity = MomentumPlayerAPI.GetVelocity();
     const energy = MomentumPlayerAPI.GetEnergy();
@@ -21,6 +56,7 @@ const ServerPost = () => {
 
     const data = {
         time: currentTime,
+		position: JSON.stringify(position),
         angles: JSON.stringify(angles),
         velocity: JSON.stringify(velocity),
         energy: energy,
@@ -49,7 +85,7 @@ const requestLoop = () => {
     $.Schedule(0, requestLoop);
 };
 
-
+requestLoop();
 
 @PanelHandler()
 class HudShowPosHandler {
