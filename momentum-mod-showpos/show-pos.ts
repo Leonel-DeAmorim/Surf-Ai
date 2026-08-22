@@ -55,26 +55,28 @@ if (children.length > 0) {
     const buttons = MomentumInputAPI.GetButtons();
 
     const data = {
-        time: currentTime,
-		position: JSON.stringify(position),
-        angles: JSON.stringify(angles),
-        velocity: JSON.stringify(velocity),
-        energy: energy,
-        strafeSync0: strafeSync0,
-        strafeSync1: strafeSync1,
-        moveType: moveType,
-        moveHud: JSON.stringify(moveHud),
-        lastTick: JSON.stringify(lastTick),
-        ducking: ducking,
-        sprinting: sprinting,
-        walking: walking,
-
-        buttons: JSON.stringify(buttons)
-    };
+    time: currentTime,
+    position: position,
+    angles: angles,
+    velocity: velocity,
+    energy: energy,
+    strafeSync0: strafeSync0,
+    strafeSync1: strafeSync1,
+    moveType: moveType,
+    moveHud: moveHud,
+    lastTick: lastTick,
+    ducking: ducking,
+    sprinting: sprinting,
+    walking: walking,
+    buttons: buttons
+};
 
     $.AsyncWebRequest('http://127.0.0.1:8080/test', {
         type: 'POST',
-        data: data,
+    	data: JSON.stringify(data),
+		headers: {
+        'Content-Type': 'application/json'
+    }
     }as any);
 };
 

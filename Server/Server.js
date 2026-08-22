@@ -1,11 +1,9 @@
-
 const http = require("http");
-const querystring = require("querystring");
 
 const server = http.createServer((req, res) => {
 
     if (req.method === "POST" && req.url === "/test") {
-
+    
         let body = "";
 
         req.on("data", chunk => {
@@ -13,16 +11,11 @@ const server = http.createServer((req, res) => {
         });
 
         req.on("end", () => {
-
-            const data = querystring.parse(body);
-
+            
             try {
-                data.position = JSON.parse(data.position);
-                data.angles = JSON.parse(data.angles);
-                data.velocity = JSON.parse(data.velocity);
-                data.moveHud = JSON.parse(data.moveHud);
-                data.lastTick = JSON.parse(data.lastTick);
-                data.buttons = JSON.parse(data.buttons);
+
+            const data = JSON.parse(body);
+
 
                 console.clear();
 
