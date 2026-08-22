@@ -72,12 +72,11 @@ if (children.length > 0) {
 };
 
     $.AsyncWebRequest('http://127.0.0.1:8080/test', {
-        type: 'POST',
-    	data: JSON.stringify(data),
-		headers: {
-        'Content-Type': 'application/json'
+    type: 'POST',
+    data: {
+        payload: JSON.stringify(data)
     }
-    }as any);
+} as any);
 };
 
 

@@ -1,4 +1,5 @@
 const http = require("http");
+const querystring = require("querystring");
 
 const server = http.createServer((req, res) => {
 
@@ -14,7 +15,8 @@ const server = http.createServer((req, res) => {
             
             try {
 
-            const data = JSON.parse(body);
+            const formData = querystring.parse(body);
+            const data = JSON.parse(formData.payload);
 
 
                 console.clear();
