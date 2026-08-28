@@ -46,6 +46,11 @@ const server = http.createServer((req, res) => {
 
         return;
     }
+
+
+    //Create /event endpoint for SSE (Server-Sent Event)
+
+
     //Return a 404 Not Found response for requests that don't match the POST/test endpoint
     res.writeHead(404);
     res.end("Not found");
