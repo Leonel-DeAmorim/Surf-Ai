@@ -3,6 +3,9 @@ const http = require("http");
 //Use querystring module to parse data received in the HTTP request body
 const querystring = require("querystring");
 
+let client=[];
+let latestData= null;
+
 //Create the HTTP server and handle incoming requests
 const server = http.createServer((req, res) => {
 
@@ -30,7 +33,14 @@ const server = http.createServer((req, res) => {
                 console.log("--------- GAME DATA ----------");
                 console.log(data);
                 console.log("------------------------------");
-
+                
+            latestData=data;
+            //Here we send data to client 
+            if(latestData !== null){
+            for (const res of client){
+                res.write("data: "+ JSON.stringify(latestData) + "\n\n");
+            }
+        }
                 //Send 200 OK response to indicate the data was received and processed successfully
                 res.writeHead(200);
                 res.end("OK");
@@ -49,7 +59,18 @@ const server = http.createServer((req, res) => {
 
 
     //Create /event endpoint for SSE (Server-Sent Event)
+    if (req.method === "GET" && req.url === "/event") {
+        res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+        });
 
+        client.push(res);
+
+        return; 
+       
+    }
 
     //Return a 404 Not Found response for requests that don't match the POST/test endpoint
     res.writeHead(404);
