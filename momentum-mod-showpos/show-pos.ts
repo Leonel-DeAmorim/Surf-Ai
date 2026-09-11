@@ -1,161 +1,188 @@
-//Use Node's HTTP module which provides functionality needed to create and run the server
-const http = require("http");
-//Use querystring module to parse data received in the HTTP request body
-const querystring = require("querystring");
+import { PanelHandler } from 'util/module-helpers';
+import { CustomizerPropertyType, registerHUDCustomizerComponent } from 'common/hud-customizer';
+import { getTextShadowFast } from 'common/hud-customizer';
 
-//File system module to read HTML, CSS and JavaScript files
-const fs = require("fs");
+//Use Panorama API to enable cl_showpos 1 allowing us to read player's X,Y and Z coordinates from the HUD
+ GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
 
-//Store all connected clients so they can receive updates through SSE
-let client=[];
 
-//Store latest player data
-let latestData= null;
+//Collect the current player state and send it to our local server 
+const ServerPost = () => {
 
-//Create the HTTP server and handle incoming requests
-const server = http.createServer((req, res) => {
+//Store the player's current position 
+//Set to null because the position may not be available in some states such as during map selection
+//If a valid position is found it will be stored here
+let position = null;
 
-    //Only process POST requests sent to the /test endpoint
-    if (req.method === "POST" && req.url === "/test") {
-        
-        //Initialize an empty string to store incoming request body
-        let body = "";
-        //Append each incoming chunk of data to the request body
-        req.on("data", chunk => {
-            body += chunk;
-        });
-        //Once all of the request data has been received we process it
-        req.on("end", () => {
-            
-            try {
-            //Parse the request body into an object
-            const formData = querystring.parse(body);
-            //Extract the JSON payload from the form data and parse it into a JavaScript object
-            const data = JSON.parse(formData.payload);
+//Get the current UI context panel and its child panels 
+const cp = $.GetContextPanel();
+const children = cp.Children();
 
-                //Clear the console and print the received game data
-                console.clear();
+//Look for panel containing the cl_showpos position display
+if (children.length > 0) {
+    const showPosPanel = children[0];
+    const labels = showPosPanel.Children();
 
-                console.log("--------- GAME DATA ----------");
-                console.log(data);
-                console.log("------------------------------");
-                
-            latestData=data;
-            //Send latest game data to all connected clients if latestData exists
-            if(latestData !== null){
-            for (const clientRes of client){
-                clientRes.write("data: "+ JSON.stringify(latestData) + "\n\n");
+    //Through testing the first label contains the player position we want (labels[0])
+    //The second label contains the view angle (labels[1])
+    if (labels.length > 0) {
+        const posLabel = labels[0] as Label;
+
+        //We make sure the label exists and contains position value
+        if (posLabel && posLabel.text.startsWith('Pos:')) {
+            //Remove "Pos:" and split the remaining position string into individual values
+            //Each value is then converted from a string into a number
+            //Example "Pos: 100 200 300" will then become [100, 200, 300]
+            const values = posLabel.text
+                .replace('Pos:', '')
+                .trim()
+                .split(/\s+/)
+                .map(Number);
+
+            //Accept the position if we receive exactly 3 valid numbers, then assign the values at each index to X, Y, and Z
+            if (values.length === 3 && values.every(Number.isFinite)) {
+                position = {
+                    x: values[0],
+                    y: values[1],
+                    z: values[2]
+                };
             }
         }
-                //Send 200 OK response to indicate the data was received and processed successfully
-                res.writeHead(200);
-                res.end("OK");
-
-            } catch (error) {
-                //Log an error if the received data could not be parsed
-                console.error("Failed to parse data:", error);
-                //Return a 400 Bad Request response because received data was invalid
-                res.writeHead(400);
-                res.end("Invalid data");
-            }
-        });
-
-        return;
     }
+}
 
 
-    //Create /event endpoint for SSE (Server-Sent Event)
-    if (req.method === "GET" && req.url === "/event") {
-        //Set response headers required for SSE
-        res.writeHead(200, {
-        //Tell browser that the response will contain event stream
-        "Content-Type": "text/event-stream",
-        //Prevent browser from caching the event stream
-        "Cache-Control": "no-cache",
-        //Keep connection open so server can send future updates
-        "Connection": "keep-alive"
-        });
-        //Add connected client to the list of clients receiving updates
-        client.push(res);
-        //Remove client when the connection is closed
-        req.on("close", () => {
-            client = client.filter(clientRes => clientRes !== res);
-        });
-        //Keep SSE connection open
-        return; 
-       
+    //Get player's current view angles
+    const angles = MomentumPlayerAPI.GetAngles();
+    //Get player's velocity 
+    const velocity = MomentumPlayerAPI.GetVelocity();
+    //Get player's movement energy 
+    const energy = MomentumPlayerAPI.GetEnergy();
+    //Get movement wishVel 
+    const wishVel = MomentumMovementAPI.GetMoveHudData().wishVel;
+    //Get Momentum Timer
+    const runTimer = MomentumTimerAPI.GetObservedTimerStatus().runTime;
+    //Get Majornum
+    const majorNum = MomentumTimerAPI.GetObservedTimerStatus().majorNum;
+    //Get Minor num
+    const minorNum = MomentumTimerAPI.GetObservedTimerStatus().minorNum;
+    //Get seg countgame
+    const segmentsCount = MomentumTimerAPI.GetObservedTimerStatus().segmentsCount;
+    //Get check count
+    const segmentCheckpointsCount  = MomentumTimerAPI.GetObservedTimerStatus().segmentCheckpointsCount;
+    //Get statistics from the player's previous movement tick 
+    const lastTick = MomentumMovementAPI.GetLastTickStats();
+    //Get current game time 
+    const gameTime = MomentumMovementAPI.GetCurrentTime();
+    //Check which movement states the player is in 
+    const ducking = MomentumPlayerAPI.IsDucking();
+    //Get  player's input buttons 
+    const physicalButtons = MomentumInputAPI.GetButtons().physicalButtons;
+    //Get player movement type
+    const moveType = MomentumMovementAPI.GetMoveType();
+    //Get Tick interval
+    const tickInterval = MomentumMovementAPI.GetTickInterval();
+    //Get map name
+    const mapName = MapCacheAPI.GetMapName();
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
+  
+
+    //Combine all the collected player/game information into a single object
+    //This object will be converted to JSON before being sent to the server
+    const data = {
+    runTime: runTimer,
+    position: position,
+    angles: angles,
+    velocity: velocity,
+    speed: speed,
+    energy: energy,
+    wishVel: wishVel,
+    gameTime: gameTime,
+    majorNum: majorNum,
+    minorNum: minorNum,
+    segmentsCount: segmentsCount,
+    segmentCheckpointsCount: segmentCheckpointsCount,
+    lastTick: lastTick,
+    ducking: ducking,
+    moveType: moveType,
+    tickInterval: tickInterval,
+    mapName: mapName,
+    physicalButtons: physicalButtons
+};
+    //Send collected data to local server 
+    //Data object is converted to JSON and sent as payload
+    $.AsyncWebRequest('http://127.0.0.1:8080/test', {
+    type: 'POST',
+    data: {
+        payload: JSON.stringify(data)
     }
+} as any);
+};
 
-    //Handle a GET request for the main dashboard page
-    if(req.method === "GET" && req.url === '/'){
-        //Read the Dashboard.html file from the server
-        fs.readFile("Dashboard.html", (error,data) => { 
-            //If the HTML file cannot be read then send a server error
-            if(error){
-                res.writeHead(500,{"content-type": "text/plain"})
-                res.end("Server Error");
-                return;
-            }
-            //If the file was read successfully then send it to browser
-            else{
-                res.writeHead(200, {'Content-Type': 'text/html'});
-                res.end(data);
-            }
-        }
-    );
-    //Stop processing request
-    return;
-    }
+    //Create a loop that continuously sends updated player data to the server
+    const requestLoop = () => {
+    ServerPost();
+    //Schedule this function to run at delay 0
+    //This means we run it as the scheduling system allows, which after testing appeared to be ~200 times a second or about every 5ms
+    $.Schedule(0, requestLoop);
+    };
+    //Start data collection/sending loop
+    requestLoop();
 
-    //Handle a GET request for the dashboard CSS file
-    if(req.method === "GET" && req.url === '/Dashboard.css'){
-        //Read the Dashboard.css file from the server
-        fs.readFile("Dashboard.css", (error,data) =>{
-            //If the CSS file cannot be read then send server error
-          if(error){
-                res.writeHead(500,{"content-type": "text/plain"})
-                res.end("Server Error");
-                return;
-            }
-            //If the file was read successfully then send it to browser
-            else{
-            res.writeHead(200, {'Content-Type': 'text/css'});
-            res.end(data);        
-            }
-        });
-        //Stop processing this request
-        return;
-
-    }
-        //Handle a GET request for the dashboard JS file
-        if(req.method === "GET" && req.url === '/Dashboard.js'){
-        //Read the Dashboard.js file from the server
-        fs.readFile("Dashboard.js", (error,data) =>{
-          //If the Javascript file cannot be read then send a server error
-          if(error){
-                res.writeHead(500,{"content-type": "text/plain"})
-                res.end("Server Error");
-                return;
-            }
-            //If the file was read successfully then send it to browser
-            else{
-            res.writeHead(200, {'Content-Type': 'text/javascript'});
-            res.end(data);        
-            }
-        })
-        //Stop processing request
-        return;
-        
-    }
-
-
-
-    //Return a 404 Not Found response for requests that don't match the POST/test endpoint
-    res.writeHead(404);
-    res.end("Not found");
-});
-//Start the server on localhost at port 8080
-server.listen(8080, "127.0.0.1", () => {
-    //Confirm in the terminal that the server has started successfully
-    console.log("Server listening on http://127.0.0.1:8080");
-});
+@PanelHandler()
+class HudShowPosHandler {
+	constructor() {
+		registerHUDCustomizerComponent($.GetContextPanel(), {
+			name: $.Localize('#Customizer_Show_Pos_Name'),
+			resizeX: true,
+			resizeY: false,
+			dynamicStyles: {
+				fontStyling: {
+					name: $.Localize('#Customizer_FontStyling'),
+					type: CustomizerPropertyType.NONE,
+					expandable: true,
+					children: [{ styleID: 'font' }, { styleID: 'fontSize' }, { styleID: 'fontColor' }]
+				},
+				font: {
+					name: $.Localize('#Customizer_Font'),
+					type: CustomizerPropertyType.FONT_PICKER,
+					targetPanel: '.showpos-entry__label',
+					styleProperty: 'fontFamily',
+					valueFn: (value) => `"${value}"`
+				},
+				fontSize: {
+					name: $.Localize('#Customizer_FontSize'),
+					type: CustomizerPropertyType.NUMBER_ENTRY,
+					targetPanel: '.showpos-entry__label',
+					styleProperty: 'fontSize',
+					valueFn: (value) => `${value}px`
+				},
+				fontColor: {
+					name: $.Localize('#Customizer_FontColor'),
+					type: CustomizerPropertyType.COLOR_PICKER,
+					targetPanel: '.showpos-entry__label',
+					styleProperty: 'color',
+					callbackFunc: (panel, value) =>
+						(panel.style.textShadowFast = getTextShadowFast(value as rgbaColor, 0.9))
+				},
+				backgroundColor: {
+					name: $.Localize('#Customizer_BackgroundColor'),
+					type: CustomizerPropertyType.COLOR_PICKER,
+					targetPanel: '.showpos-entry',
+					styleProperty: 'backgroundColor'
+				},
+				alignText: {
+					name: $.Localize('#Customizer_AlignText'),
+					type: CustomizerPropertyType.DROPDOWN,
+					options: [
+						{ label: 'Left', value: 'left' },
+						{ label: 'Center', value: 'center' },
+						{ label: 'Right', value: 'right' }
+					],
+					targetPanel: ['.showpos-entry', '.showpos-entry__label'],
+					styleProperty: 'horizontalAlign'
+				}
+			}
+		});
+	}
+}
