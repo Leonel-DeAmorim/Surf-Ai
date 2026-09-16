@@ -1,8 +1,10 @@
-//contents for bsp parser
-file_path = r"C:\Program Files (x86)\Steam\steamapps\common\Momentum Mod Playtest\momentum\maps\surf_mom_training.bsp"
+import bsp_tool
 
-with open(file_path, "rb") as f:
-    data = f.read()
+bsp = bsp_tool.load_bsp(r"c:\Program Files (x86)\Steam\steamapps\common\Momentum Mod Playtest\momentum\maps\surf_mom_training.bsp")
 
-print(len(data))
-print(data[:4])
+print("BSP version:", bsp.version)
+print("Number of planes:", len(bsp.PLANES))
+print("Number of nodes:", len(bsp.NODES))
+print("Number of leaves:", len(bsp.LEAVES))
+print("Number of vertices:", len(bsp.VERTICES))
+print("Number of faces:", len(bsp.FACES))
