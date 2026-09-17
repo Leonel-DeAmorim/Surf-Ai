@@ -1,8 +1,8 @@
 import bsp_tool
 
-bsp = bsp_tool.load_bsp(r"c:\Program Files (x86)\Steam\steamapps\common\Momentum Mod Playtest\momentum\maps\surf_mom_training.bsp")
+bsp = bsp_tool.load_bsp(r"c:\Program Files (x86)\Steam\steamapps\common\Momentum Mod Playtest\momentum\maps\surf_utopia.bsp")
 
-position = (5000, 1000, 0)
+position = (13796.82, 16.80, 12864.03)
 
 def side(position, plane):
   side =  (position[0]*plane.normal[0]+ position[1]*plane.normal[1]+position[2]*plane.normal[2])-plane.distance
@@ -29,5 +29,5 @@ plane = bsp.PLANES[node.plane]
 
 print("Distance:",side(position, plane))
 print("In node:",find_leaf(position, 0))
-print(bsp.LEAVES[256])
-print(bsp.LEAVES[257])
+print(bsp.LEAVES[557])
+
