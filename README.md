@@ -6,7 +6,7 @@ By leveraging the map's native **PVS (Potentially Visible Set)** and **BSP Tree*
 
 ## Core Features
 
-* **BSP Structural Parsing**: Leverages `bsp_tool` to deconstruct compiled binary map lumps (Vertices, Edges, Faces, and Leaves).
+* **BSP Structural Parsing**: Leverages `bsp_tool` to deconstruct compiled binary map lumps (Vertices, Edges, Faces, and Leaves) load the geometry once rather then multiple parses.
 * **PVS Optimization**: Traverses the BSP tree to pinpoint the player's current leaf cluster and dynamically streams only visible geometry to the ray-caster.
 * **Continuous Streaming Loop**: Non-blocking Open3D visualizer that accepts live coordinate inputs and updates the point cloud at runtime.
 * **Realistic LiDAR Modeling**: Simulates custom horizontal/vertical fields of view.
