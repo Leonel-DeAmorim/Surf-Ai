@@ -57,13 +57,14 @@ for face_index, face in enumerate(bsp.FACES):
        #Store face index together with its list of vertices, giving us the final 3D geometry
        map_geometry.append((face_index, vertices))
 
+#Create list to then find geometry from given face ID
 geometry_by_face = {}
-
+#Iterate through the geometry data and map the unique face index to its corresponding list of vertices
 for face_index, vertices in map_geometry:
    geometry_by_face[face_index] = vertices
 
 
-#Test to see if our geometry matches the total amount from file to confirm if our geometry  storage works
+#Test to see if our geometry matches the total amount from file to confirm if our geometry  storage works and face lookup
 print("BSP FACES:", len(bsp.FACES))
 print("Total stored geometry:", len(map_geometry))
 print("First entry:", map_geometry[0])
