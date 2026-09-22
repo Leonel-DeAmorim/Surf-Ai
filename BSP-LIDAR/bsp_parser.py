@@ -25,28 +25,39 @@ def find_leaf(position, node_index):
 #return our lead node index
  return find_leaf(position, next_node_index)
 
+#Initialize an empty list to store the final parsed 3D geometry
 map_geometry = []
-
+#Loop through every face defined in the BSP file, giving us the fface index and face data
 for face_index, face in enumerate(bsp.FACES):
+    #Get the surfedges that belongs to specific face
+    #first_edge tells is where dace edge starts and num_edges tells us how many edges belong to that face
     surfedges = bsp.SURFEDGES[
        face.first_edge:
        face.first_edge + face.num_edges
     ]
+    #Create an empty list to store the vertices for this fface
     vertices = []
-
+   #Loop through each surfedge belonging to that current face
     for surfedge in surfedges:
+        #A surfedge can be positive or negative so we do abs() to remove sign and use it as an index
         edge_index = abs(surfedge)
+        #Get the actual edge using the dege index
         edge = bsp.EDGES[edge_index]
+        #The sign determines the direction the edge should be traversed
         if surfedge >= 0:
            vertex_index = edge[0]
         else: 
            vertex_index = edge[1]
+         #Use vertex index to retreive the actual 3D vertex from BSP file
         vertex = bsp.VERTICES[vertex_index]
+        #Add the vertex to current faces vertex list
         vertices.append(vertex)
-
+   #Only add faces that contain enough vertices to form a polygon
     if len(vertices) >= 3:
+       #Store face index together with its list of vertices, giving us the final 3D geometry
        map_geometry.append((face_index, vertices))
 
+#Test to see if our geometry matches the total amount from file to confirm if our geometry  storage works
 print("BSP FACES:", len(bsp.FACES))
 print("Total stored geometry:", len(map_geometry))
 print("First entry:", map_geometry[0])
