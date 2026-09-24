@@ -64,7 +64,27 @@ for face_index, vertices in map_geometry:
    geometry_by_face[face_index] = vertices
 
 
-#Test to see if our geometry matches the total amount from file to confirm if our geometry  storage works and face lookup
+
+def get_leaf_geometry(leaf_index):
+   leaf = bsp.LEAVES[leaf_index]
+
+   leaf_face_indices = bsp.LEAF_FACES[
+      leaf.first_leaf_face:
+      leaf.first_leaf_face + leaf.num_leaf_faces
+   ]
+
+   leaf_geometry = []
+
+   for face_index in leaf_face_indices:
+      vertices = geometry_by_face[face_index]
+      leaf_geometry.append(
+         (face_index,vertices)
+      )
+   return leaf_geometry
+
+
+
+#Test to see if our geometry matches the total amount from file to confirm if our geometry  storage works
 print("BSP FACES:", len(bsp.FACES))
 print("Total stored geometry:", len(map_geometry))
 print("First entry:", map_geometry[0])
