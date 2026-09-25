@@ -64,29 +64,33 @@ for face_index, vertices in map_geometry:
    geometry_by_face[face_index] = vertices
 
 
-
+#Retrieve the face indices and corresponding vertex geometry got a specific BSP leaf
 def get_leaf_geometry(leaf_index):
+   #Look at specific leaf object using leaf_index
    leaf = bsp.LEAVES[leaf_index]
-
+   #Extract only the face indices belonging to the speciffic leaff
    leaf_face_indices = bsp.LEAF_FACES[
       leaf.first_leaf_face:
       leaf.first_leaf_face + leaf.num_leaf_faces
    ]
 
    leaf_geometry = []
-
+   #Iterate through each face index assigned to this leaf
    for face_index in leaf_face_indices:
+      #Retreieve the vertex dataa associated with leaf index and then group the face index and vertices together
       vertices = geometry_by_face[face_index]
       leaf_geometry.append(
          (face_index,vertices)
       )
    return leaf_geometry
 
+#Test 
+leaf_index = find_leaf(position,0)
 
+leaf_geometry = get_leaf_geometry(leaf_index)
 
-#Test to see if our geometry matches the total amount from file to confirm if our geometry  storage works
-print("BSP FACES:", len(bsp.FACES))
-print("Total stored geometry:", len(map_geometry))
-print("First entry:", map_geometry[0])
-print("Last entry:", map_geometry[-1])
-print(geometry_by_face[3634])
+print("Player leaf: ", len(leaf_geometry))
+print("Number of faces in leaf: ", len(leaf_geometry))
+
+print("First face ID: ", leaf_geometry[0][0])
+print("First face vertices: ", leaf_geometry[0][1])
