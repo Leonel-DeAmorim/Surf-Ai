@@ -89,8 +89,8 @@ leaf_index = find_leaf(position,0)
 
 leaf_geometry = get_leaf_geometry(leaf_index)
 
-print("Player leaf: ", len(leaf_geometry))
-print("Number of faces in leaf: ", len(leaf_geometry))
+print("\nPVS attributes:")
+print(dir(bsp.VISIBILITY.pvs))
 
-print("First face ID: ", leaf_geometry[0][0])
-print("First face vertices: ", leaf_geometry[0][1])
+print("\nVisibility attributes:")
+print(dir(bsp.VISIBILITY))
