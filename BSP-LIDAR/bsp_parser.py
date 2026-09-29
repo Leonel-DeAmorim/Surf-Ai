@@ -89,8 +89,19 @@ leaf_index = find_leaf(position,0)
 
 leaf_geometry = get_leaf_geometry(leaf_index)
 
-print("\nPVS attributes:")
-print(dir(bsp.VISIBILITY.pvs))
+leaf = bsp.LEAVES[leaf_index]
 
-print("\nVisibility attributes:")
-print(dir(bsp.VISIBILITY))
+player_pvs = bsp.VISIBILITY.pvs[leaf.cluster]
+visible_cluster = []
+
+
+#Get players visible cluster
+for cluster_index in range(len(bsp.VISIBILITY.pvs)):
+   byte_index = cluster_index // 8
+   bit_index = cluster_index % 8 
+   if player_pvs[byte_index] & (1 << bit_index):
+      visible_cluster.append(cluster_index)
+
+print("Player cluster: ", leaf.cluster)
+print("Visible clusters: ", len(visible_cluster))
+print("Frist visible cluster: ", visible_cluster[:20])
