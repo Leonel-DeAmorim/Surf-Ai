@@ -92,7 +92,7 @@ leaf_geometry = get_leaf_geometry(leaf_index)
 leaf = bsp.LEAVES[leaf_index]
 
 player_pvs = bsp.VISIBILITY.pvs[leaf.cluster]
-visible_cluster = []
+visible_clusters = []
 
 
 #Get players visible cluster
@@ -100,8 +100,21 @@ for cluster_index in range(len(bsp.VISIBILITY.pvs)):
    byte_index = cluster_index // 8
    bit_index = cluster_index % 8 
    if player_pvs[byte_index] & (1 << bit_index):
-      visible_cluster.append(cluster_index)
+      visible_clusters.append(cluster_index)
 
 print("Player cluster: ", leaf.cluster)
-print("Visible clusters: ", len(visible_cluster))
-print("Frist visible cluster: ", visible_cluster[:20])
+print("Visible clusters: ", len(visible_clusters))
+print("Frist visible cluster: ", visible_clusters[:20])
+
+#Find leaves belonging to the clusters
+visible_leaves = []
+
+for leaf_index, leaf in enumerate (bsp.LEAVES):
+   if leaf.cluster<0:
+      continue
+   if leaf.cluster in visible_clusters:
+      visible_leaves.append(leaf_index)
+
+print("Visible leaves: ", len(visible_leaves))
+print("First vsible leaves: ", visible_leaves[:20])
+
