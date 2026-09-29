@@ -118,3 +118,18 @@ for leaf_index, leaf in enumerate (bsp.LEAVES):
 print("Visible leaves: ", len(visible_leaves))
 print("First vsible leaves: ", visible_leaves[:20])
 
+#Get the faces from those leaves in clusters
+visible_faces = set()
+
+for leaf_index in visible_leaves:
+   leaf = bsp.LEAVES[leaf_index]
+
+   leaf_face_indices = bsp.LEAF_FACES[
+      leaf.first_leaf_face:
+      leaf.first_leaf_face + leaf.num_leaf_faces
+   ]
+   for face_index in leaf_face_indices:
+      visible_faces.add(face_index)
+
+print("Unique visible faces: ", len(visible_faces))
+print("First vsible face: ", list(visible_faces)[:20])
