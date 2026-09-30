@@ -133,3 +133,17 @@ for leaf_index in visible_leaves:
 
 print("Unique visible faces: ", len(visible_faces))
 print("First vsible face: ", list(visible_faces)[:20])
+
+#Get geometry from the faces
+pvs_geometry = []
+
+for face_index in visible_faces:
+
+   vertices = geometry_by_face[face_index]
+
+   pvs_geometry.append(
+      (face_index, vertices)
+   )
+
+print("PVS geometry faces: ", len(pvs_geometry))
+print("First PVS geometry face: ", list(pvs_geometry)[0])
