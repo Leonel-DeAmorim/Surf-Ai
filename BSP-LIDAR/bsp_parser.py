@@ -114,32 +114,41 @@ print("Visible clusters: ", len(visible_clusters))
 #Print the first 20 visible clusters (test)
 print("Frist visible cluster: ", visible_clusters[:20])
 
-#Find leaves belonging to the clusters
+#Get the faces from those leaves that belong to the visible clusters
 visible_leaves = []
-
+#Go through every leaf in BSP
 for leaf_index, leaf in enumerate (bsp.LEAVES):
+   #A cluster value below 0 means this lead does not belong so we skip it
    if leaf.cluster<0:
       continue
+   #If the leaf's cluster is one of the visible clusters from player position then we add that leaf to our list
    if leaf.cluster in visible_clusters:
       visible_leaves.append(leaf_index)
-
+#Print how many leaves we found in the visible clusters
 print("Visible leaves: ", len(visible_leaves))
+#Print the first 20 visible leaves(Test)
 print("First vsible leaves: ", visible_leaves[:20])
 
-#Get the faces from those leaves in clusters
+#Get the faces from those visible leaves in clusters
+#We use set so the same face is only storedd once
 visible_faces = set()
-
+#Go through every possible lead
 for leaf_index in visible_leaves:
+   #Get the actual leaf object from the BSP
    leaf = bsp.LEAVES[leaf_index]
-
+   #Get the fface indices belonging to this leaf
+   #first_leaf_face is where the leaf's face list starts and num_leaf_faces is how many belong to the leaf
+   #So first_leaf_face = 100 and num_leaf_faces=5 then we get LEAF_FACES[100:105]
    leaf_face_indices = bsp.LEAF_FACES[
       leaf.first_leaf_face:
       leaf.first_leaf_face + leaf.num_leaf_faces
    ]
+   #Add each face to the set of visible faces
    for face_index in leaf_face_indices:
       visible_faces.add(face_index)
-
+#Print total number of unique visible faces
 print("Unique visible faces: ", len(visible_faces))
+#Print the first 20 visible faces (Test)
 print("First vsible face: ", list(visible_faces)[:20])
 
 #Get geometry from the faces
