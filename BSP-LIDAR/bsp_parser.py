@@ -151,16 +151,17 @@ print("Unique visible faces: ", len(visible_faces))
 #Print the first 20 visible faces (Test)
 print("First vsible face: ", list(visible_faces)[:20])
 
-#Get geometry from the faces
+#Get geometry belonging to each visible face
 pvs_geometry = []
-
+#Go through every unique visible ace
 for face_index in visible_faces:
-
+   #Get the vertices that make up this face
    vertices = geometry_by_face[face_index]
-
+   #Store both fface index and its geometry
    pvs_geometry.append(
       (face_index, vertices)
    )
-
+#Print how many geometry faces collected
 print("PVS geometry faces: ", len(pvs_geometry))
+#Print the first PVS geometry face (Test)
 print("First PVS geometry face: ", list(pvs_geometry)[0])
