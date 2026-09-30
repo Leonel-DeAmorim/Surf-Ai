@@ -84,7 +84,7 @@ def get_leaf_geometry(leaf_index):
       )
    return leaf_geometry
 
-#Test 
+#Test variables
 leaf_index = find_leaf(position,0)
 
 leaf_geometry = get_leaf_geometry(leaf_index)
@@ -96,14 +96,22 @@ visible_clusters = []
 
 
 #Get players visible cluster
+#The PVS(Potential Visible Set) tells us which clusters can be seen from players current location
 for cluster_index in range(len(bsp.VISIBILITY.pvs)):
+   #Each cluster is repersented by one bit in the PVS data
+   #Ddivide the cluster index by 8 to find which byte containts its bit
    byte_index = cluster_index // 8
+   #Find which bit inside the byte repersents this cluster
    bit_index = cluster_index % 8 
+   #Check whether the bit for this cluster is turned on, if it is then the cluster is visible to the player
    if player_pvs[byte_index] & (1 << bit_index):
       visible_clusters.append(cluster_index)
 
+#Print the cluster that contains player current position
 print("Player cluster: ", leaf.cluster)
+#Print how many clusters are potentially visible
 print("Visible clusters: ", len(visible_clusters))
+#Print the first 20 visible clusters (test)
 print("Frist visible cluster: ", visible_clusters[:20])
 
 #Find leaves belonging to the clusters
