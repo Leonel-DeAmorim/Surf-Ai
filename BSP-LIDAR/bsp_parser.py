@@ -1,8 +1,9 @@
 import bsp_tool
+
 #Load the .bsp map using bsp_tool
 bsp = bsp_tool.load_bsp(r"c:\Program Files (x86)\Steam\steamapps\common\Momentum Mod Playtest\momentum\maps\surf_utopia.bsp")
 #Define a 3D coordinate point (X,Y,Z) to test within map space
-position = (-12720.69, -5.97, 11479.33)
+position = (-13952.00, 0.00, 12864.03)
 #Given position and plane we do the dot product and subtract it from the distance to find on which side of the plane our position is
 def side(position, plane):
   side =  (position[0]*plane.normal[0]+ position[1]*plane.normal[1]+position[2]*plane.normal[2])-plane.distance
@@ -117,13 +118,13 @@ print("Frist visible cluster: ", visible_clusters[:20])
 #Get the faces from those leaves that belong to the visible clusters
 visible_leaves = []
 #Go through every leaf in BSP
-for leaf_index, leaf in enumerate (bsp.LEAVES):
+for visible_leaf_index, visible_leaf in enumerate (bsp.LEAVES):
    #A cluster value below 0 means this lead does not belong so we skip it
-   if leaf.cluster<0:
+   if visible_leaf.cluster<0:
       continue
    #If the leaf's cluster is one of the visible clusters from player position then we add that leaf to our list
-   if leaf.cluster in visible_clusters:
-      visible_leaves.append(leaf_index)
+   if visible_leaf.cluster in visible_clusters:
+      visible_leaves.append(visible_leaf_index)
 #Print how many leaves we found in the visible clusters
 print("Visible leaves: ", len(visible_leaves))
 #Print the first 20 visible leaves(Test)
