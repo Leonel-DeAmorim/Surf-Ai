@@ -1,4 +1,5 @@
 import math
+import bsp_parser
 
 #Define view angle taken from Momentum Mod which is given as degrees
 view_angle = (0.07, 0.04, 0.00)
@@ -18,3 +19,6 @@ forward = (
 #Print the result
 print("View angles", view_angle)
 print("forward vector", forward)
+#Test to see if import works
+print("PVS geometry:", len(bsp_parser.pvs_geometry))
+print("Player position:", bsp_parser.position)
