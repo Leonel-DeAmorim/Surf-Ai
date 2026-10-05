@@ -16,5 +16,5 @@ By leveraging the map's native **PVS (Potentially Visible Set)** and **BSP Tree*
 ## Prerequisites & Installation
 -python 3.14.7
 -Node
-
+-Open3D
 
