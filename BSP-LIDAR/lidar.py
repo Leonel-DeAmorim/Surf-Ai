@@ -43,5 +43,14 @@ trinagles = np.array([
 mesh = o3d.t.geometry.TriangleMesh()
 mesh.vertex["positions"] = o3d.core.Tensor(verticies)
 mesh.triangle["indices"] = o3d.core.Tensor(trinagles)
+#Put triangle geometry into raycasting scene
+scene = o3d.t.geometry.RaycastingScene()
+scene.add_triangles(mesh)
 
-print(mesh)
+#Create lidar ray and give it direction to test if it hits our test triangle
+rays = o3d.core.Tensor([
+    [2,2,5,0,0,-1]
+],dtype=o3d.core.Dtype.Float32)
+
+ans = scene.cast_rays(rays)
+print(ans)
