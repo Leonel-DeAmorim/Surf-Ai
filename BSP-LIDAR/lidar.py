@@ -50,20 +50,24 @@ scene.add_triangles(mesh)
 
 #Create lidar ray and give it direction to test if it hits our test triangle
 
-origin =(2,2,5)
-direction = (0,0,-1)
+origin =(0,0,5)
+direction = (0.6,0.48,-0.64)
 
 rays = o3d.core.Tensor([
-    [2,2,5,0,0,-1]
+    [0,0,5,0.6,0.48,-0.64]
 ],dtype=o3d.core.Dtype.Float32)
 
 ans = scene.cast_rays(rays)
 print(ans)
 
-t=5
+t= ans["t_hit"][0].item()
 
-hit_x = origin[0] +direction[0]*t
-hit_y = origin[1] +direction[1]*t
-hit_z = origin[2] +direction[2]*t
-hit = (hit_x,hit_y,hit_z)
-print("Hit Point: ", hit)
+if math.isfinite(t):
+    hit_x = origin[0] +direction[0]*t
+    hit_y = origin[1] +direction[1]*t
+    hit_z = origin[2] +direction[2]*t
+    hit = (hit_x,hit_y,hit_z)
+    print("Hit Point: ", hit)
+
+else:
+    print("No Hit")
