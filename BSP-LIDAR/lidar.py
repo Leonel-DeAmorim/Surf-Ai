@@ -85,6 +85,7 @@ rays = o3d.core.Tensor(
 
 ans = scene.cast_rays(rays)
 print(ans)
+hit_points = []
 
 for i in range(num_rays):
     t= ans["t_hit"][i].item()
@@ -94,7 +95,73 @@ for i in range(num_rays):
         hit_y = origin[1] +rays_data[i][4]*t
         hit_z = origin[2] +rays_data[i][5]*t
         hit = (hit_x,hit_y,hit_z)
+        hit_points.append(hit)
         print("Ray",i,"Hit Point:",hit,"Distance:",t)
 
     else:
      print("Ray",i,"No hit" )
+
+
+#Create a open3D visual 
+#Create empty visual mesh to populate
+visual_mesh = o3d.geometry.TriangleMesh()
+
+visual_mesh.vertices = o3d.utility.Vector3dVector(
+   verticies.astype(np.float64)
+)
+visual_mesh.triangles = o3d.utility.Vector3iVector(
+   trinagles.astype(np.int32)
+)
+
+visual_mesh.compute_vertex_normals()
+
+point_cloud = o3d.geometry.PointCloud()
+
+point_cloud.points = o3d.utility.Vector3dVector(
+   np.array(hit_points,dtype=np.float64)
+)
+origin_cloud = o3d.geometry.PointCloud()
+origin_cloud.points = o3d.utility.Vector3dVector(
+   np.array([origin],dtype=np.float64)
+)
+
+line_points = [origin] +hit_points
+
+line_indices = []
+
+for i in range(len(hit_points)):
+   line_indices.append([0, i+1])
+
+ray_lines = o3d.geometry.LineSet()
+
+ray_lines.points = o3d.utility.Vector3dVector(
+   np.array(line_points,dtype=np.float64)
+)
+ray_lines.lines = o3d.utility.Vector2iVector(
+   np.array(line_indices,dtype=np.int32)
+)
+
+visual_mesh.paint_uniform_color([0.7,0.7,0.7])
+point_cloud.paint_uniform_color([1.0,0.0,0.0])
+origin_cloud.paint_uniform_color([0.0,0.0,1.0])
+ray_lines.paint_uniform_color([1.0,0.8,0.0])
+
+coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
+   size = 2.0,
+   origin = origin
+)
+#Display
+o3d.visualization.draw_geometries(
+   [
+      visual_mesh,
+      point_cloud,
+      origin_cloud,
+      ray_lines,
+      coordinate_frame
+   ],
+   window_name = "lidar test",
+   width = 1200,
+   height = 800,
+   mesh_show_wireframe = True,
+   mesh_show_back_face = True
+)
