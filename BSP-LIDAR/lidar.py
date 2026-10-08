@@ -50,39 +50,48 @@ scene.add_triangles(mesh)
 
 #Create lidar ray and give it direction to test if it hits our test triangle
 
-origin = (4,3,5)
-direction = (0.6,0.48,-0.64)
+origin = (2,3,2)
 max_range = 10.0
-fov = 60.0
-num_rays = 5
+horizontal_fov = 90.0
+vertical_fov = 60.0
+horizontal_rays = 9
+vertical_rays = 7
+
 rays_data = []
 
-for i in range(num_rays):
-    angle = -fov / 2 + i * (fov / (num_rays -1))
+#Generate rays in fov
 
-    angle_radians = math.radians(angle)
+for vertical_index in range(vertical_rays):
+   vertical_angle = (
+      -vertical_fov /2 +vertical_index *(vertical_fov /(vertical_rays -1))
+   )
+   for horizontal_index in range (horizontal_rays):
+      horizontal_angle = (
+         -horizontal_fov /2 +horizontal_index * (horizontal_fov /(horizontal_rays -1))
+      )
+      ray_pitch = pitch +math.radians(vertical_angle)
+      ray_yaw = yaw + math.radians(horizontal_angle)
 
-    direction = (
-        math.sin(angle_radians),
-        0.0,
-        -math.cos(angle_radians)
-    )
+      direction = (
+         math.cos(ray_pitch) * math.cos(ray_yaw),
+         math.cos(ray_pitch) * math.sin(ray_yaw),
+         -math.sin(ray_pitch)
+      )
 
-    rays_data.append([
-        origin[0],
-        origin[1],
-        origin[2],
-        direction[0],
-        direction[1],
-        direction[2]
-
-    ])
-
+      rays_data.append([
+         origin[0],
+         origin[1],
+         origin[2],
+         direction[0],
+         direction[1],
+         direction[2]
+      ])
+num_rays = horizontal_rays * vertical_rays
+print("Number of rays:", num_rays)
 rays = o3d.core.Tensor(
-    rays_data,
-    dtype=o3d.core.Dtype.Float32
+   rays_data,
+   dtype=o3d.core.Dtype.Float32
 )
-
 ans = scene.cast_rays(rays)
 print(ans)
 hit_points = []
@@ -118,14 +127,14 @@ visual_mesh.compute_vertex_normals()
 point_cloud = o3d.geometry.PointCloud()
 
 point_cloud.points = o3d.utility.Vector3dVector(
-   np.array(hit_points,dtype=np.float64)
+   np.array(hit_points,dtype=np.float64).reshape(-1,3)
 )
 origin_cloud = o3d.geometry.PointCloud()
 origin_cloud.points = o3d.utility.Vector3dVector(
    np.array([origin],dtype=np.float64)
 )
 
-line_points = [origin] +hit_points
+line_points = [origin] + hit_points
 
 line_indices = []
 
@@ -138,7 +147,7 @@ ray_lines.points = o3d.utility.Vector3dVector(
    np.array(line_points,dtype=np.float64)
 )
 ray_lines.lines = o3d.utility.Vector2iVector(
-   np.array(line_indices,dtype=np.int32)
+   np.array(line_indices,dtype=np.int32).reshape(-1,2)
 )
 
 visual_mesh.paint_uniform_color([0.7,0.7,0.7])
