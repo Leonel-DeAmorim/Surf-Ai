@@ -19,14 +19,20 @@ forward = (
     -math.sin(pitch)
 )
 #Print the result
-print("View angles", view_angle)
-print("forward vector", forward)
+#print("View angles", view_angle)
+#print("forward vector", forward)
 
-print("PVS geometry:", len(bsp_parser.pvs_geometry))
-print("Player position:", bsp_parser.position)
+#print("PVS geometry:", len(bsp_parser.pvs_geometry))
+#print("Player position:", bsp_parser.position)
+
+
 print("//////////////////////////////////////////////")
-
-
+#test output
+face_id, face_vertices = bsp_parser.pvs_geometry[0]
+print("Face ID:",face_id)
+print("Number o verticies:", len(face_vertices))
+print("Vertives:",face_vertices)
+print("//////////////////////////////////////////////")
 #Test code to understand open3d library
 #Create a test trinagle to then hit with lidar 
 #Create verticies
@@ -43,7 +49,7 @@ trinagles = np.array([
 mesh = o3d.t.geometry.TriangleMesh()
 mesh.vertex["positions"] = o3d.core.Tensor(verticies)
 mesh.triangle["indices"] = o3d.core.Tensor(trinagles)
-print(mesh)
+#print(mesh)
 #Put triangle geometry into raycasting scene
 scene = o3d.t.geometry.RaycastingScene()
 scene.add_triangles(mesh)
@@ -87,13 +93,13 @@ for vertical_index in range(vertical_rays):
          direction[2]
       ])
 num_rays = horizontal_rays * vertical_rays
-print("Number of rays:", num_rays)
+#print("Number of rays:", num_rays)
 rays = o3d.core.Tensor(
    rays_data,
    dtype=o3d.core.Dtype.Float32
 )
 ans = scene.cast_rays(rays)
-print(ans)
+#print(ans)
 hit_points = []
 
 for i in range(num_rays):
