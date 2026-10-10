@@ -27,37 +27,53 @@ forward = (
 
 
 print("//////////////////////////////////////////////")
-#test output
-face_id, face_vertices = bsp_parser.pvs_geometry[0]
-print("Face ID:",face_id)
-print("Number o verticies:", len(face_vertices))
-print("Vertives:",face_vertices)
-print("//////////////////////////////////////////////")
-#Test code to understand open3d library
-#Create a test trinagle to then hit with lidar 
-#Create verticies
-verticies = np.array([
-    [0,0,0],
-    [10,0,0],
-    [0,10,0]
-], dtype=np.float32)
-#Pair verticies into traingle
-trinagles = np.array([
-    [0,1,2]
-],dtype=np.int32)
-#After defining the above we now store the repersentation in Open3D TriangleMesh so Open3D can work with it
-mesh = o3d.t.geometry.TriangleMesh()
-mesh.vertex["positions"] = o3d.core.Tensor(verticies)
-mesh.triangle["indices"] = o3d.core.Tensor(trinagles)
-#print(mesh)
-#Put triangle geometry into raycasting scene
+
+#Convert the gometry  into triangle mesh ffor Open3D
+pvs_vertices = []
+pvs_triangles = []
+triangle_face_ids = []
+
+for face_id, face_vertices in bsp_parser.pvs_geometry:
+
+   face_coords = [
+      [float(v.x),float(v.y),float(v.z)]
+      for v in face_vertices
+   ]
+
+   if len(face_coords) <3:
+      continue
+
+   base_index = len(pvs_vertices)
+   pvs_vertices.extend(face_coords)
+
+   for i in range (1,len(face_coords) - 1):
+
+      pvs_triangles.append([
+         base_index,
+         base_index + i,
+         base_index + i + 1
+      ])
+
+      triangle_face_ids.append(face_id)
+
+pvs_vertices = np.asanyarray(pvs_vertices, dtype=np.float32)
+pvs_triangles = np.asanyarray(pvs_triangles, dtype=np.int32)
+
+print("PVS faces:", len(bsp_parser.pvs_geometry))
+print("Mesh vertives:", len(pvs_vertices))
+print("Mesh triangles:", len(pvs_triangles))
+
+mesh =o3d.t.geometry.TriangleMesh()
+mesh.vertex["positions"] = o3d.core.Tensor(pvs_vertices)
+mesh.triangle["indices"] = o3d.core.Tensor(pvs_triangles)
+
 scene = o3d.t.geometry.RaycastingScene()
 scene.add_triangles(mesh)
 
 #Create lidar ray and give it direction to test if it hits our test triangle
 
-origin = (2,3,2)
-max_range = 10.0
+origin = tuple(float(v) for v in bsp_parser.position)
+max_range = 1000.0
 horizontal_fov = 90.0
 vertical_fov = 60.0
 horizontal_rays = 9
@@ -101,31 +117,48 @@ rays = o3d.core.Tensor(
 ans = scene.cast_rays(rays)
 #print(ans)
 hit_points = []
+ray_endpoints = []
 
 for i in range(num_rays):
     t= ans["t_hit"][i].item()
+    ray_direction = rays_data[i][3:6]
 
     if math.isfinite(t) and t <= max_range:
-        hit_x = origin[0] +rays_data[i][3]*t
-        hit_y = origin[1] +rays_data[i][4]*t
-        hit_z = origin[2] +rays_data[i][5]*t
-        hit = (hit_x,hit_y,hit_z)
-        hit_points.append(hit)
-        print("Ray",i,"Hit Point:",hit,"Distance:",t)
+      hit = (
+         origin[0] + ray_direction[0] * t,
+         origin[1] + ray_direction[1] * t,
+         origin[2] + ray_direction[2] * t
+      )
+      hit_points.append(hit)
+      ray_endpoints.append(hit)
+
+      triangle_index = ans["primitive_ids"][i].item() 
+      source_face_id = triangle_face_ids[triangle_index]
+
+      print(
+         "Ray",i,
+         "Hit face:",source_face_id,
+         "Point", hit,
+         "Distance", t
+         )
 
     else:
-     print("Ray",i,"No hit" )
-
+     endpoint = (
+         origin[0] +ray_direction[0] *max_range,
+         origin[1] +ray_direction[1] *max_range,
+         origin[2] + ray_direction[2] *max_range
+     )
+     ray_endpoints.append(endpoint)
 
 #Create a open3D visual 
 #Create empty visual mesh to populate
 visual_mesh = o3d.geometry.TriangleMesh()
 
 visual_mesh.vertices = o3d.utility.Vector3dVector(
-   verticies.astype(np.float64)
+   pvs_vertices.astype(np.float64)
 )
 visual_mesh.triangles = o3d.utility.Vector3iVector(
-   trinagles.astype(np.int32)
+   pvs_triangles
 )
 
 visual_mesh.compute_vertex_normals()
@@ -133,19 +166,19 @@ visual_mesh.compute_vertex_normals()
 point_cloud = o3d.geometry.PointCloud()
 
 point_cloud.points = o3d.utility.Vector3dVector(
-   np.array(hit_points,dtype=np.float64).reshape(-1,3)
+   np.asarray(hit_points,dtype=np.float64).reshape(-1,3)
 )
 origin_cloud = o3d.geometry.PointCloud()
 origin_cloud.points = o3d.utility.Vector3dVector(
-   np.array([origin],dtype=np.float64)
+   np.asarray([origin],dtype=np.float64)
 )
 
-line_points = [origin] + hit_points
+line_points = [origin] + ray_endpoints
 
-line_indices = []
-
-for i in range(len(hit_points)):
-   line_indices.append([0, i+1])
+line_indices = [
+   [0, i +1]
+   for i in range(num_rays)
+]
 
 ray_lines = o3d.geometry.LineSet()
 
@@ -156,13 +189,13 @@ ray_lines.lines = o3d.utility.Vector2iVector(
    np.array(line_indices,dtype=np.int32).reshape(-1,2)
 )
 
-visual_mesh.paint_uniform_color([0.7,0.7,0.7])
+visual_mesh.paint_uniform_color([0.65,0.65,0.65])
 point_cloud.paint_uniform_color([1.0,0.0,0.0])
 origin_cloud.paint_uniform_color([0.0,0.0,1.0])
 ray_lines.paint_uniform_color([1.0,0.8,0.0])
 
 coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
-   size = 2.0,
+   size = 64.0,
    origin = origin
 )
 #Display
