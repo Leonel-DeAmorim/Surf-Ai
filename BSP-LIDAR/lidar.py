@@ -18,12 +18,6 @@ forward = (
     math.cos(pitch) * math.sin(yaw),
     -math.sin(pitch)
 )
-#Print the result
-#print("View angles", view_angle)
-#print("forward vector", forward)
-
-#print("PVS geometry:", len(bsp_parser.pvs_geometry))
-#print("Player position:", bsp_parser.position)
 
 
 print("//////////////////////////////////////////////")
@@ -71,13 +65,14 @@ scene = o3d.t.geometry.RaycastingScene()
 scene.add_triangles(mesh)
 
 #Create lidar ray and give it direction to test if it hits our test triangle
-
-origin = tuple(float(v) for v in bsp_parser.position)
-max_range = 1000.0
+player_position = np.array(bsp_parser.position, dtype= float)
+eye_height = 64
+origin = player_position + np.array([0.0, 0.0, eye_height])
+max_range = 15000.0
 horizontal_fov = 90.0
 vertical_fov = 60.0
-horizontal_rays = 9
-vertical_rays = 7
+horizontal_rays = 12
+vertical_rays = 6
 
 rays_data = []
 
@@ -198,18 +193,74 @@ coordinate_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(
    size = 64.0,
    origin = origin
 )
-#Display
-o3d.visualization.draw_geometries(
-   [
-      visual_mesh,
-      point_cloud,
-      origin_cloud,
-      ray_lines,
-      coordinate_frame
-   ],
-   window_name = "lidar test",
+#Creates the display window
+vis = o3d.visualization.Visualizer()
+vis.create_window(
+   window_name = "LIDAR Player View",
    width = 1200,
-   height = 800,
-   mesh_show_wireframe = True,
-   mesh_show_back_face = True
+   height = 800
 )
+
+render_option = vis.get_render_option()
+render_option.mesh_show_wireframe = True
+render_option.mesh_show_back_face = True
+
+#Add geometry 
+for geometry in [
+   point_cloud,
+   visual_mesh,
+   origin_cloud,
+   ray_lines,
+   coordinate_frame
+
+]:
+   vis.add_geometry(geometry)
+
+#Build the camera position
+width = 1200
+height = 800
+
+horizontal_fov_rad = math.radians(horizontal_fov)
+vertical_fov_rad = math.radians(vertical_fov)
+
+fx = width / (2 * math.tan(horizontal_fov_rad / 2))
+fy = height / (2 * math.tan(vertical_fov_rad / 2))
+
+intrinsic = o3d.camera.PinholeCameraIntrinsic(
+   width,
+   height,
+   fx,
+   fy,
+   width / 2,
+   height / 2
+)
+
+world_up = np.array([0.0, 0.0, 1.0])
+forward_vec = np.array(forward, dtype= float)
+forward_vec /= np.linalg.norm(forward_vec)
+
+right = np.cross(forward_vec, world_up)
+right /= np.linalg.norm(right)
+
+camera_down = np.cross(forward_vec, right)
+camera_down /= np.linalg.norm(camera_down)
+
+
+
+rotation = np.vstack([right, camera_down, forward_vec])
+
+extrinsic = np.eye(4)
+extrinsic[:3, :3] = rotation
+extrinsic[:3, 3] = -rotation @ np.array(origin)
+
+camera = o3d.camera.PinholeCameraParameters()
+camera.intrinsic = intrinsic
+camera.extrinsic = extrinsic
+
+view = vis.get_view_control()
+view.convert_from_pinhole_camera_parameters(
+   camera,
+   allow_arbitrary = True
+)
+vis.run()
+vis.destroy_window()
