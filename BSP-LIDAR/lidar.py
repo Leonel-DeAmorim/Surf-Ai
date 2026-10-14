@@ -2,9 +2,46 @@ import math
 import bsp_parser
 import open3d as o3d
 import numpy as np
+import json
+import urllib.request
+
+#Define function for receiving game data
+def get_game_data():
+   url = "http://127.0.0.1:8080/latest"
+
+   try:
+      with urllib.request.urlopen(url, timeout= 1) as response:
+         data = json.loads(response.read().decode("utf-8"))
+      return data
+
+   except Exception as error:
+      print("Could not read game data:", error)
+      return None
+
+
+game_data = get_game_data()
+
+if game_data is None or game_data.get("position") is None:
+   raise RuntimeError(
+      "No player data received. Ensure Momentum Mod and server is running"
+      )
+
+player_data = game_data ["position"]
+
+player_position = np.array([
+   player_data["x"],
+   player_data["y"],
+   player_data["z"]
+], dtype = float)
 
 #Define view angle taken from Momentum Mod which is given as degrees
-view_angle = (0.07, 0.04, 0.00)
+angle_data = game_data["angles"]
+
+view_angle = (
+   angle_data["x"],
+   angle_data["y"],
+   angle_data["z"]
+)
 #We will create forward vector to know where player is looking and this will be the basis of our lidar
 
 #Convert the view_angle from degrees to radians for the speciic pitch, yaw and roll 
@@ -65,7 +102,6 @@ scene = o3d.t.geometry.RaycastingScene()
 scene.add_triangles(mesh)
 
 #Create lidar ray and give it direction to test if it hits our test triangle
-player_position = np.array(bsp_parser.position, dtype= float)
 eye_height = 64
 origin = player_position + np.array([0.0, 0.0, eye_height])
 max_range = 15000.0
