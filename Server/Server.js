@@ -32,8 +32,8 @@ const server = http.createServer((req, res) => {
                 console.clear();
 
                 console.log("--------- GAME DATA ----------");
-console.log("Position:", data.position);
-console.log("Angles:", data.angles);
+                 console.log("Position:", data.position);
+                console.log("Angles:", data.angles);
                 console.log("------------------------------");
                 
             latestData=data;
