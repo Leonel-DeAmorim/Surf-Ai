@@ -32,7 +32,8 @@ const server = http.createServer((req, res) => {
                 console.clear();
 
                 console.log("--------- GAME DATA ----------");
-                console.log(data);
+console.log("Position:", data.position);
+console.log("Angles:", data.angles);
                 console.log("------------------------------");
                 
             latestData=data;
@@ -54,12 +55,12 @@ const server = http.createServer((req, res) => {
     }
 
     //Send the latest player state to Python
-    if (req.method == "GET" && req.url == "/latest"){
+    if (req.method === "GET" && req.url === "/latest"){
         res.writeHead(200, {
          "Content-Type": "application/json",
          "Cache-Control": "no-cache"
         });
-        req.end(JSON.stringify(latestData));
+        res.end(JSON.stringify(latestData));
         return; 
     }
 
