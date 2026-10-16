@@ -64,7 +64,7 @@ pvs_vertices = []
 pvs_triangles = []
 triangle_face_ids = []
 
-for face_id, face_vertices in bsp_parser.pvs_geometry:
+for face_id, face_vertices in bsp_parser.all_map_geometry:
 
    face_coords = [
       [float(v.x),float(v.y),float(v.z)]

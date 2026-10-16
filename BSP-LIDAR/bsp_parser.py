@@ -57,7 +57,8 @@ for face_index, face in enumerate(bsp.FACES):
     if len(vertices) >= 3:
        #Store face index together with its list of vertices, giving us the final 3D geometry
        map_geometry.append((face_index, vertices))
-
+       
+all_map_geometry = map_geometry
 #Create list to then find geometry from given face ID
 geometry_by_face = {}
 #Iterate through the geometry data and map the unique face index to its corresponding list of vertices
