@@ -299,3 +299,57 @@ for face_index in visible_faces:
 print("PVS geometry faces: ", len(pvs_geometry))
 #Print the first PVS geometry face (Test)
 print("First PVS geometry face: ", list(pvs_geometry)[0])
+
+#CHECK attributes to filter potentially
+
+from collections import Counter
+
+print("\n=== ENTITY CLASSNAMES ===")
+
+entities = bsp.ENTITIES
+class_counts = Counter(
+    entity.get("classname", "<no classname>")
+    for entity in entities
+)
+
+for classname, count in class_counts.most_common():
+    print(f"{classname}: {count}")
+
+print("\n=== TRIGGER / CHECKPOINT ENTITIES ===")
+
+for index, entity in enumerate(entities):
+    classname = entity.get("classname", "").lower()
+    if any(word in classname for word in (
+        "trigger", "checkpoint", "start", "zone"
+    )):
+        print(index, dict(entity))
+
+print("\n=== BRUSH ATTRIBUTES ===")
+
+for lump_name in ("BRUSHES", "BRUSH_SIDES",
+                  "FACE_BRUSHES", "FACE_BRUSH_LIST"):
+    lump = getattr(bsp, lump_name, None)
+    print(f"\n{lump_name}: {len(lump) if lump is not None else 'missing'}")
+    if lump is not None and len(lump) > 0:
+        print("First entry:", lump[0])
+
+print("\n=== FACE SURFACE FLAG COUNTS ===")
+
+flag_counts = Counter()
+
+for face in bsp.FACES:
+    if face.texture_info < len(bsp.TEXTURE_INFO):
+        flags = bsp.TEXTURE_INFO[face.texture_info].flags
+        flag_counts[str(flags)] += 1
+
+for flags, count in flag_counts.most_common(30):
+    print(f"{flags}: {count}")
+
+print("\n=== TEXTURE STRING DATA ===")
+
+for lump_name in ("TEXTURE_DATA_STRING_TABLE",
+                  "TEXTURE_DATA_STRING_DATA"):
+    lump = getattr(bsp, lump_name, None)
+    print(f"\n{lump_name}: {len(lump) if lump is not None else 'missing'}")
+    if lump is not None:
+        print("First entries:", list(lump[:10]))
