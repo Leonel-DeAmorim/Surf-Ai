@@ -1,4 +1,6 @@
 import bsp_tool
+import re
+import numpy as np
 
 #Load the .bsp map using bsp_tool
 bsp = bsp_tool.load_bsp(r"c:\Program Files (x86)\Steam\steamapps\common\Momentum Mod Playtest\momentum\maps\surf_utopia.bsp")
@@ -64,7 +66,129 @@ for face_index in range(first_face, last_face):
        #Store face index together with its list of vertices, giving us the final 3D geometry
        map_geometry.append((face_index, vertices))
 
-all_map_geometry = map_geometry
+#Exclude submodels to only keep waht we want
+all_map_geometry = list(map_geometry)
+
+
+raw_entities = bytes(bsp.ENTITIES)
+entity_text = raw_entities.decode("utf-8", errors="replace")
+
+print("Entity lump bytes:", len(raw_entities))
+print("Entity text preview:", repr(entity_text[:300]))
+
+entities_by_model = {}
+
+entity_blocks = re.findall(r"\{([^{}]*)\}", entity_text)
+print("Entity blocks found:", len(entity_blocks))
+
+for block in entity_blocks:
+    pairs = re.findall(r'"([^"]*)"\s*"([^"]*)"', block)
+    entity = dict(pairs)
+
+    model_ref = entity.get("model", "")
+    if model_ref.startswith("*"):
+        try:
+            model_id = int(model_ref[1:])
+            entities_by_model[model_id] = entity
+        except ValueError:
+            continue
+
+print("Entities with model references:", len(entities_by_model))
+print("Sample model entities:", list(entities_by_model.items())[:5])
+
+
+print("Entities with model references:", len(entities_by_model))
+print(
+    "Sample model entities:",
+    list(entities_by_model.items())[:5]
+)
+
+
+def extract_model_faces(model_id, model_origin):
+   model = bsp.MODELS[model_id]
+   origin_offset = np.asarray(model_origin, dtype=float)
+
+   extracted = []
+
+   first_face = model.first_face
+   last_face = first_face + model.num_faces
+
+   for face_index in range (first_face, last_face):
+      face = bsp.FACES[face_index]
+
+      surfedge = bsp.SURFEDGES[
+         face.first_edge:
+         face.first_edge + face.num_edges
+      ]
+
+      vertices = []
+
+      for surfedge in surfedge:
+         edge = bsp.EDGES[abs(surfedge)]
+
+         if surfedge >= 0 :
+            vertex_index = edge[0]
+         else:
+            vertex_index = edge[1]
+
+         vertex = np.asarray(
+            bsp.VERTICES[vertex_index],
+            dtype=float
+         )
+
+         vertices.append(vertex + origin_offset)
+
+      if len(vertices) >=3:
+         extracted.append(
+            ((model_id, face_index), vertices)
+         )
+   return extracted
+
+skipped_models = []
+included_models = []
+
+excluded_classes = {
+    "trigger_teleport",
+    "zone_timer_start",
+    "zone_timer_checkpoint",
+    "zone_timer_end",
+}
+
+for model_id in range(1, len(bsp.MODELS)):
+    entity = entities_by_model.get(model_id)
+
+    if entity is None:
+        print(f"Model {model_id}: no matching entity")
+        classname = "unknown"
+    else:
+        classname = entity.get("classname", "unknown").strip().lower()
+
+    should_exclude = classname in excluded_classes
+
+    if should_exclude:
+        skipped_models.append((model_id, classname))
+        continue
+
+    origin_text = entity.get("origin", "0 0 0") if entity else "0 0 0"
+
+    try:
+        model_origin = [float(value) for value in origin_text.split()]
+        if len(model_origin) != 3:
+            model_origin = [0.0, 0.0, 0.0]
+    except ValueError:
+        model_origin = [0.0, 0.0, 0.0]
+
+    model_geometry = extract_model_faces(model_id, model_origin)
+    all_map_geometry.extend(model_geometry)
+    included_models.append((model_id, classname))
+
+print("Included submodels:", len(included_models))
+print("Excluded submodels:", len(skipped_models))
+print("Excluded models and classes:", skipped_models)
+print("Included model classes:", sorted(set(c for _, c in included_models)))
+print("Included model IDs:", included_models)
+print("Total geometry faces:", len(all_map_geometry))
+
 #Create list to then find geometry from given face ID
 geometry_by_face = {}
 #Iterate through the geometry data and map the unique face index to its corresponding list of vertices
