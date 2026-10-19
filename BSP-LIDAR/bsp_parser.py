@@ -28,8 +28,14 @@ def find_leaf(position, node_index):
 
 #Initialize an empty list to store the final parsed 3D geometry
 map_geometry = []
+world_model = bsp.MODELS[0]
+first_face = world_model.first_face
+last_face = first_face + world_model.num_faces
+
 #Loop through every face defined in the BSP file, giving us the fface index and face data
-for face_index, face in enumerate(bsp.FACES):
+for face_index in range(first_face, last_face):
+    face = bsp.FACES[face_index]
+
     #Get the surfedges that belongs to specific face
     #first_edge tells is where dace edge starts and num_edges tells us how many edges belong to that face
     surfedges = bsp.SURFEDGES[
@@ -57,7 +63,7 @@ for face_index, face in enumerate(bsp.FACES):
     if len(vertices) >= 3:
        #Store face index together with its list of vertices, giving us the final 3D geometry
        map_geometry.append((face_index, vertices))
-       
+
 all_map_geometry = map_geometry
 #Create list to then find geometry from given face ID
 geometry_by_face = {}
@@ -158,6 +164,8 @@ pvs_geometry = []
 #Go through every unique visible ace
 for face_index in visible_faces:
    #Get the vertices that make up this face
+   if face_index not in geometry_by_face:
+      continue
    vertices = geometry_by_face[face_index]
    #Store both fface index and its geometry
    pvs_geometry.append(
