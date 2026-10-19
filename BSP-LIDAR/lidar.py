@@ -66,10 +66,21 @@ triangle_face_ids = []
 
 for face_id, face_vertices in bsp_parser.all_map_geometry:
 
-   face_coords = [
-      [float(v.x),float(v.y),float(v.z)]
-      for v in face_vertices
-   ]
+   face_coords = []
+
+   for v in face_vertices:
+       if hasattr(v, "x"):
+         coords = [
+             float(v.x),
+             float(v.y),
+            float(v.z)
+         ]
+       else:
+        coords = np.asarray(
+           v, dtype = float
+       ).reshape(3).tolist()
+
+       face_coords.append(coords)
 
    if len(face_coords) <3:
       continue
@@ -91,7 +102,9 @@ pvs_vertices = np.asanyarray(pvs_vertices, dtype=np.float32)
 pvs_triangles = np.asanyarray(pvs_triangles, dtype=np.int32)
 
 print("PVS faces:", len(bsp_parser.pvs_geometry))
-print("Mesh vertives:", len(pvs_vertices))
+print("All geometry faces:", len(bsp_parser.all_map_geometry))
+print("World geometry faces:", len(bsp_parser.map_geometry))
+print("Mesh vertices:", len(pvs_vertices))
 print("Mesh triangles:", len(pvs_triangles))
 
 mesh =o3d.t.geometry.TriangleMesh()
