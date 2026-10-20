@@ -43,8 +43,8 @@ player_position = np.array([
 
 
 #Convert the gometry  into triangle mesh for Open3D
-pvs_vertices = []
-pvs_triangles = []
+all_vertices = []
+all_triangles = []
 triangle_face_ids = []
 
 #Read every face of the map from BSP geometry
@@ -73,13 +73,13 @@ for face_id, face_vertices in bsp_parser.all_map_geometry:
       continue
 
    #Record the starting index of the face verticies
-   base_index = len(pvs_vertices)
-   pvs_vertices.extend(face_coords)
+   base_index = len(all_vertices)
+   all_vertices.extend(face_coords)
 
    #Split the face into triangles by connecting its first vertex to each consecutive pair of remaining vertices
    for i in range (1,len(face_coords) - 1):
 
-      pvs_triangles.append([
+      all_triangles.append([
          base_index,
          base_index + i,
          base_index + i + 1
@@ -88,13 +88,13 @@ for face_id, face_vertices in bsp_parser.all_map_geometry:
       triangle_face_ids.append(face_id)
 
 #Convert the vertex and triangle lists into numpy arrays for Oen3D
-pvs_vertices = np.asarray(pvs_vertices, dtype=np.float32)
-pvs_triangles = np.asarray(pvs_triangles, dtype=np.int32)
+all_vertices = np.asarray(all_vertices, dtype=np.float32)
+all_triangles = np.asarray(all_triangles, dtype=np.int32)
 
 #Create a trianlge mesh that Open3D can use for collision detection
 mesh =o3d.t.geometry.TriangleMesh()
-mesh.vertex["positions"] = o3d.core.Tensor(pvs_vertices)
-mesh.triangle["indices"] = o3d.core.Tensor(pvs_triangles)
+mesh.vertex["positions"] = o3d.core.Tensor(all_vertices)
+mesh.triangle["indices"] = o3d.core.Tensor(all_triangles)
 
 #Build a scene that can test whether rays hit the map and how far away
 scene = o3d.t.geometry.RaycastingScene()
@@ -119,15 +119,47 @@ target_frame_time = 1.0 / target_fps
 #Create the visible version of the map
 visual_mesh = o3d.geometry.TriangleMesh()
 visual_mesh.vertices = o3d.utility.Vector3dVector(
-   pvs_vertices.astype(np.float64)
+   all_vertices.astype(np.float64)
 )
 visual_mesh.triangles = o3d.utility.Vector3iVector(
-   pvs_triangles
+   all_triangles
 )
 
-#Calculate surface normals and colour the map grey
+#Calculate normal direction of every triangle
 visual_mesh.compute_triangle_normals()
-visual_mesh.paint_uniform_color([0.65, 0.65, 0.65])
+#Get the triangle normals as a numpy array
+triangle_normals = np.asarray(visual_mesh.triangle_normals)
+
+#Create one colour for every vertex
+vertex_colours = np.zeros(
+   (len(all_vertices), 3),
+   dtype= np.float64
+)
+
+#define colour using RGB values from 0 to 1
+floor_colour = [0.65, 0.65, 0.65] #Green
+wall_colour = [0.65, 0.65, 0.65] #Blue
+ramp_colour = [1.00, 0.55, 0.15] #Orange
+
+#Colour each triangle according to its surface normal
+for triangle, normal in zip(all_triangles, triangle_normals):
+
+   vertical_alignment = abs(normal[2])
+
+   if vertical_alignment > 0.85:
+      colour = floor_colour
+
+   elif vertical_alignment < 0.25:
+      colour = wall_colour
+
+   else:
+      colour = ramp_colour
+
+   vertex_colours[triangle]= colour
+
+visual_mesh.vertex_colors = o3d.utility.Vector3dVector(
+   vertex_colours
+)
 
 #Red points show where LIDAR rays hit map
 point_cloud = o3d.geometry.PointCloud()
