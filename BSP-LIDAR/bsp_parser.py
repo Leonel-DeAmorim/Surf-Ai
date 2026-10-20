@@ -69,18 +69,18 @@ for face_index in range(first_face, last_face):
 #Exclude submodels to only keep waht we want
 all_map_geometry = list(map_geometry)
 
-
+#Convert the BSP entity lump into readable text
+#Entities contain information about map objects including thier class name and model references which we will use to filter geometry
 raw_entities = bytes(bsp.ENTITIES)
 entity_text = raw_entities.decode("utf-8", errors="replace")
 
-print("Entity lump bytes:", len(raw_entities))
-print("Entity text preview:", repr(entity_text[:300]))
-
+#Store entities that reference a BSP submmodel, the dictionary key is the submodel ID and the value containts model entity properties 
 entities_by_model = {}
 
+#Split the entity text into individual entity blocks
 entity_blocks = re.findall(r"\{([^{}]*)\}", entity_text)
-print("Entity blocks found:", len(entity_blocks))
 
+#Read each entitys key value pairs and save entities reference a model using a reference such as "*1" or "*25" 
 for block in entity_blocks:
     pairs = re.findall(r'"([^"]*)"\s*"([^"]*)"', block)
     entity = dict(pairs)
@@ -91,31 +91,26 @@ for block in entity_blocks:
             model_id = int(model_ref[1:])
             entities_by_model[model_id] = entity
         except ValueError:
+            #Skip model references that cannot be converted to a integer 
             continue
-
-print("Entities with model references:", len(entities_by_model))
-print("Sample model entities:", list(entities_by_model.items())[:5])
-
-
-print("Entities with model references:", len(entities_by_model))
-print(
-    "Sample model entities:",
-    list(entities_by_model.items())[:5]
-)
 
 
 def extract_model_faces(model_id, model_origin):
+   #Retrieve BSP model and convert its origin to a numpy array so it can be added to vertex coordinates
    model = bsp.MODELS[model_id]
    origin_offset = np.asarray(model_origin, dtype=float)
 
    extracted = []
 
+   #Find the range of faces belonging to the submodel
    first_face = model.first_face
    last_face = first_face + model.num_faces
 
+   #Process each face belonging to the submodel
    for face_index in range (first_face, last_face):
       face = bsp.FACES[face_index]
 
+      #Get the edge reference that defin the outline of the face
       surfedge = bsp.SURFEDGES[
          face.first_edge:
          face.first_edge + face.num_edges
@@ -123,6 +118,7 @@ def extract_model_faces(model_id, model_origin):
 
       vertices = []
 
+      #Resolve each surfedge into a vertex index, the sign of the surfedge dtermines which endpoint of the reference to use
       for surfedge in surfedge:
          edge = bsp.EDGES[abs(surfedge)]
 
@@ -131,6 +127,7 @@ def extract_model_faces(model_id, model_origin):
          else:
             vertex_index = edge[1]
 
+         #Retrieve the vertex coordinates and apply the model origin
          vertex = np.asarray(
             bsp.VERTICES[vertex_index],
             dtype=float
@@ -138,15 +135,21 @@ def extract_model_faces(model_id, model_origin):
 
          vertices.append(vertex + origin_offset)
 
+      #Polygon needs at least 3 vertices to form a face
       if len(vertices) >=3:
+         #Store the model ID and face ID so each face can be identified later
          extracted.append(
             ((model_id, face_index), vertices)
          )
    return extracted
 
+#Track which submodels are excluded and which are added to map geometry
 skipped_models = []
 included_models = []
 
+#Exlude teleport triggers and timer zones volumes from the render geometry as it was being rendered when it shouldnt have
+#We kept other classes such as func_illusionary as they contain geometry for a curved ramp needed in the utopia test file
+#Other maps may need looking into what to exclude but excluding trigger and zones for now seem to work 
 excluded_classes = {
     "trigger_teleport",
     "zone_timer_start",
@@ -154,21 +157,24 @@ excluded_classes = {
     "zone_timer_end",
 }
 
+#Start at model 1 becouse model 0 repersents the world geometry which is already extracted
 for model_id in range(1, len(bsp.MODELS)):
+    #Find the entity associated with this submodel
     entity = entities_by_model.get(model_id)
 
     if entity is None:
         print(f"Model {model_id}: no matching entity")
         classname = "unknown"
     else:
+        #Normalize the class name so comparisons are case insensitive
         classname = entity.get("classname", "unknown").strip().lower()
 
-    should_exclude = classname in excluded_classes
-
-    if should_exclude:
+   #Skip models whos entits class are in the exclusion list
+    if classname in excluded_classes:
         skipped_models.append((model_id, classname))
         continue
 
+   #Read the entity origin using zero offset when its missing or invalid
     origin_text = entity.get("origin", "0 0 0") if entity else "0 0 0"
 
     try:
@@ -178,18 +184,15 @@ for model_id in range(1, len(bsp.MODELS)):
     except ValueError:
         model_origin = [0.0, 0.0, 0.0]
 
+   #Extract the model's polygons and append them to the full map geometry
     model_geometry = extract_model_faces(model_id, model_origin)
     all_map_geometry.extend(model_geometry)
+    #Record the cindluded model for option debugging
     included_models.append((model_id, classname))
 
-print("Included submodels:", len(included_models))
-print("Excluded submodels:", len(skipped_models))
-print("Excluded models and classes:", skipped_models)
-print("Included model classes:", sorted(set(c for _, c in included_models)))
-print("Included model IDs:", included_models)
-print("Total geometry faces:", len(all_map_geometry))
 
-#Create list to then find geometry from given face ID
+#Create lookup table that maps each world face ID to it vertices
+#This lets use quickly find geometry associated with face when building PVS geometry
 geometry_by_face = {}
 #Iterate through the geometry data and map the unique face index to its corresponding list of vertices
 for face_index, vertices in map_geometry:
@@ -216,13 +219,15 @@ def get_leaf_geometry(leaf_index):
       )
    return leaf_geometry
 
-#Test variables
+#Find which BSP leaf contains the test position
+#Leaf identifies the area of the map where position is located
 leaf_index = find_leaf(position,0)
 
-leaf_geometry = get_leaf_geometry(leaf_index)
-
+#Get the leaf so we can determine its visibility cluster
 leaf = bsp.LEAVES[leaf_index]
 
+#Get PVS bit data for the cluster containing the test position
+#Each bit indicated whether another cluster is potentially visible
 player_pvs = bsp.VISIBILITY.pvs[leaf.cluster]
 visible_clusters = []
 
@@ -239,14 +244,9 @@ for cluster_index in range(len(bsp.VISIBILITY.pvs)):
    if player_pvs[byte_index] & (1 << bit_index):
       visible_clusters.append(cluster_index)
 
-#Print the cluster that contains player current position
-print("Player cluster: ", leaf.cluster)
-#Print how many clusters are potentially visible
-print("Visible clusters: ", len(visible_clusters))
-#Print the first 20 visible clusters (test)
-print("Frist visible cluster: ", visible_clusters[:20])
 
 #Get the faces from those leaves that belong to the visible clusters
+#THis finds all BSP leaves that belong to PVS and leaves with negative cluster value are not associated with a regular visibility cluster so we skip them
 visible_leaves = []
 #Go through every leaf in BSP
 for visible_leaf_index, visible_leaf in enumerate (bsp.LEAVES):
@@ -256,13 +256,10 @@ for visible_leaf_index, visible_leaf in enumerate (bsp.LEAVES):
    #If the leaf's cluster is one of the visible clusters from player position then we add that leaf to our list
    if visible_leaf.cluster in visible_clusters:
       visible_leaves.append(visible_leaf_index)
-#Print how many leaves we found in the visible clusters
-print("Visible leaves: ", len(visible_leaves))
-#Print the first 20 visible leaves(Test)
-print("First vsible leaves: ", visible_leaves[:20])
+
 
 #Get the faces from those visible leaves in clusters
-#We use set so the same face is only storedd once
+#We use set so the same face is only storedd once and avoid duplicates
 visible_faces = set()
 #Go through every possible lead
 for leaf_index in visible_leaves:
@@ -278,12 +275,10 @@ for leaf_index in visible_leaves:
    #Add each face to the set of visible faces
    for face_index in leaf_face_indices:
       visible_faces.add(face_index)
-#Print total number of unique visible faces
-print("Unique visible faces: ", len(visible_faces))
-#Print the first 20 visible faces (Test)
-print("First vsible face: ", list(visible_faces)[:20])
 
-#Get geometry belonging to each visible face
+
+#Build seperate list containing only world faces found through PVS calculation
+#This is kept seperate from all_map_geometry so it is its own seperate set
 pvs_geometry = []
 #Go through every unique visible ace
 for face_index in visible_faces:
@@ -295,61 +290,3 @@ for face_index in visible_faces:
    pvs_geometry.append(
       (face_index, vertices)
    )
-#Print how many geometry faces collected
-print("PVS geometry faces: ", len(pvs_geometry))
-#Print the first PVS geometry face (Test)
-print("First PVS geometry face: ", list(pvs_geometry)[0])
-
-#CHECK attributes to filter potentially
-
-from collections import Counter
-
-print("\n=== ENTITY CLASSNAMES ===")
-
-entities = bsp.ENTITIES
-class_counts = Counter(
-    entity.get("classname", "<no classname>")
-    for entity in entities
-)
-
-for classname, count in class_counts.most_common():
-    print(f"{classname}: {count}")
-
-print("\n=== TRIGGER / CHECKPOINT ENTITIES ===")
-
-for index, entity in enumerate(entities):
-    classname = entity.get("classname", "").lower()
-    if any(word in classname for word in (
-        "trigger", "checkpoint", "start", "zone"
-    )):
-        print(index, dict(entity))
-
-print("\n=== BRUSH ATTRIBUTES ===")
-
-for lump_name in ("BRUSHES", "BRUSH_SIDES",
-                  "FACE_BRUSHES", "FACE_BRUSH_LIST"):
-    lump = getattr(bsp, lump_name, None)
-    print(f"\n{lump_name}: {len(lump) if lump is not None else 'missing'}")
-    if lump is not None and len(lump) > 0:
-        print("First entry:", lump[0])
-
-print("\n=== FACE SURFACE FLAG COUNTS ===")
-
-flag_counts = Counter()
-
-for face in bsp.FACES:
-    if face.texture_info < len(bsp.TEXTURE_INFO):
-        flags = bsp.TEXTURE_INFO[face.texture_info].flags
-        flag_counts[str(flags)] += 1
-
-for flags, count in flag_counts.most_common(30):
-    print(f"{flags}: {count}")
-
-print("\n=== TEXTURE STRING DATA ===")
-
-for lump_name in ("TEXTURE_DATA_STRING_TABLE",
-                  "TEXTURE_DATA_STRING_DATA"):
-    lump = getattr(bsp, lump_name, None)
-    print(f"\n{lump_name}: {len(lump) if lump is not None else 'missing'}")
-    if lump is not None:
-        print("First entries:", list(lump[:10]))
