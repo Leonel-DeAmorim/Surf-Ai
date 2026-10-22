@@ -5,7 +5,22 @@ import numpy as np
 import json
 import urllib.request
 import time
+def save_point_cloud(saved_hits, filename="momentum_lidar.ply"):
+    if not saved_hits:
+        print("No LiDAR points to save.")
+        return
 
+    points = np.asarray(
+        list(saved_hits.values()),
+        dtype=np.float64
+    )
+
+    cloud = o3d.geometry.PointCloud()
+    cloud.points = o3d.utility.Vector3dVector(points)
+    cloud.paint_uniform_color([1.0, 0.0, 0.0])
+
+    o3d.io.write_point_cloud(filename, cloud)
+    print(f"Saved {len(points)} points to {filename}")
 #Define function for receiving game data
 def get_game_data():
    #Local server provides the latest player position and viewing angles
@@ -108,8 +123,8 @@ max_range = 15000.0
 horizontal_fov = 90.0
 vertical_fov = 60.0
 #Number of horizontal and vertical rays to be sent
-horizontal_rays = 12
-vertical_rays = 6
+horizontal_rays = 128
+vertical_rays = 64
 #Total number of rays cast during each update
 num_rays = horizontal_rays * vertical_rays
 #Target update rate, aim for 60 updates per second
@@ -198,14 +213,15 @@ render_option.mesh_show_wireframe =True
 render_option.mesh_show_back_face = True
 
 #Add the mapp, hit points, player origin, rays and acxes to the window
-for geometry in [
-   visual_mesh,
-   point_cloud,
-   origin_cloud,
-   ray_lines,
-   coordinate_frame
-]:
-   vis.add_geometry(geometry)
+#Comment out to test a lidar only view
+#for geometry in [
+  # visual_mesh,
+ #  point_cloud,
+  # origin_cloud,
+ #  ray_lines,
+ #  coordinate_frame
+#]:
+   #vis.add_geometry(geometry)
 
 #These values describe the demensions of the window
 width = 1200
@@ -231,10 +247,11 @@ intrinsic = o3d.camera.PinholeCameraIntrinsic(
 
 #Define the worlds upward direction which is used to calcualte the cameras orientation
 world_up = np.array([0.0, 0.0, 1.0])
-
+saved_hits = {}
+voxel_size = 4.0
 #Kepp updating the visualization until the user closes the window
 print("Close window to stop")
-
+point_cloud_added = False
 while vis.poll_events():
    #Record start time so the loop can aim for target frame rate
    frame_start = time.perf_counter()
@@ -345,9 +362,34 @@ while vis.poll_events():
                )
                ray_endpoint.append(endpoint)
       #Update the red point cloud with latest map hit location
-      point_cloud.points = o3d.utility.Vector3dVector(
-            np.asarray(hit_points, dtype= np.float64).reshape(-1,3)
+      for hit in hit_points:
+         point = np.asarray(hit, dtype=np.float64)
+
+         voxel = tuple(
+            np.floor(point / voxel_size).astype(np.int64)
          )
+         if voxel not in saved_hits:
+            saved_hits[voxel] = point
+      if saved_hits:
+         saved_points = np.asarray(
+        list(saved_hits.values()),
+        dtype=np.float64
+       )
+
+         point_cloud.points = o3d.utility.Vector3dVector(saved_points)
+
+    # Explicitly make every point red
+         point_cloud.colors = o3d.utility.Vector3dVector(
+        np.tile([1.0, 0.0, 0.0], (len(saved_points), 1))
+       )
+
+      if not point_cloud_added:
+        # Add the cloud only after it contains real points
+        vis.add_geometry(point_cloud)
+        vis.reset_view_point(True)
+        point_cloud_added = True
+      else:
+        vis.update_geometry(point_cloud)
       #Update the blue point showing the LIDARs current origin
       origin_cloud.points = o3d.utility.Vector3dVector(
             np.asarray([origin], dtype=np.float64)
@@ -426,5 +468,7 @@ while vis.poll_events():
    if remaining > 0 :
          time.sleep(remaining)
 #Close window and end visualization
+save_point_cloud(saved_hits)
+
 vis.destroy_window()
 print("Lidar STOPPED")
