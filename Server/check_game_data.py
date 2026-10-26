@@ -15,9 +15,19 @@ while True:
             print("No data received yet")
 
         else:
-            print("Position:", data.get("position"))
-            print("Angles:", data.get("angles"))
-            print("----------------------------------------")
+            print("Position:  ", data.get('position'))
+            print("Angles:    ", data.get('angles'))
+            print("Velocity:  ", data.get('velocity'))
+            print("Speed:     ", data.get('speed'))
+            print("Energy:    ", data.get('energy'))
+            print("WishVel:   ", data.get('wishVel'))
+            print("Game Time: ", data.get('gameTime'))
+            print("Run Time:  ", data.get('runTime'))
+            print("Move Type: ", data.get('moveType'))
+            print("Ducking:   ", data.get('ducking'))
+            print("Buttons:   ", data.get('physicalButtons'))
+            print("Map:       ", data.get('mapName'))
+            print("Last Tick: ", data.get('lastTick'))
 
     except Exception as error:
         print("Connection or data error", error)

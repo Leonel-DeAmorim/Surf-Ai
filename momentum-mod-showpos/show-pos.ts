@@ -90,6 +90,7 @@ if (children.length > 0) {
     //Combine all the collected player/game information into a single object
     //This object will be converted to JSON before being sent to the server
     const data = {
+    timestampMs: Date.now(),
     runTime: runTimer,
     position: position,
     angles: angles,
