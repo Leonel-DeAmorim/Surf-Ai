@@ -54,6 +54,17 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    //Server Health check endpoint
+    if (req.method === "GET" && req.url === "/health") {
+        res.writeHead(200, {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store"
+        });
+        res.end(JSON.stringify({
+            status: "online"
+        }));
+    }return;
+
     //Send the latest player state to Python
     if (req.method === "GET" && req.url === "/latest"){
         res.writeHead(200, {
