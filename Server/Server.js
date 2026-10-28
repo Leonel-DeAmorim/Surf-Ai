@@ -63,7 +63,8 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({
             status: "online"
         }));
-    }return;
+        return;
+    }
 
     //Send the latest player state to Python
     if (req.method === "GET" && req.url === "/latest"){

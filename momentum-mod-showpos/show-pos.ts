@@ -116,6 +116,13 @@ if (children.length > 0) {
     type: 'POST',
     data: {
         payload: JSON.stringify(data)
+    },
+    success: () =>{
+        $.Schedule(0, requestLoop);
+    },
+    error: () => {
+        $.Msg("[Telemetry] Post failed. Waiting before retry");
+        $.Schedule(1.0,requestLoop);
     }
 } as any);
 };
@@ -123,9 +130,6 @@ if (children.length > 0) {
     //Create a loop that continuously sends updated player data to the server
     const requestLoop = () => {
     ServerPost();
-    //Schedule this function to run at delay 0
-    //This means we run it as the scheduling system allows, which after testing appeared to be ~200 times a second or about every 5ms
-    $.Schedule(0, requestLoop);
     };
     //Start data collection/sending loop
     requestLoop();
