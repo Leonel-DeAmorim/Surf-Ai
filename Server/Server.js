@@ -7,6 +7,18 @@ const querystring = require("querystring");
 //Store latest player data
 let latestData= null;
 
+const History_Window_MS = 2 * 60 * 1000;
+const MAX_HISTORY_SAMPLES = 10000;
+const telemetryHistory = [];
+let nextSampleId = 1;
+
+let stats = {
+    received: 0,
+    totalDelayMs: 0 ,
+    maxDelayMs: 0,
+    lastReportsMs: Date.now()
+};
+
 //Create the HTTP server and handle incoming requests
 const server = http.createServer((req, res) => {
 
