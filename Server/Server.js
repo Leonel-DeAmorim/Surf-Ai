@@ -6,7 +6,7 @@ const querystring = require("querystring");
 
 //Store latest player data
 let latestData= null;
-
+let lastReceiveHrNs = null;
 const History_Window_MS = 2 * 60 * 1000;
 const MAX_HISTORY_SAMPLES = 10000;
 const telemetryHistory = [];
@@ -129,6 +129,117 @@ if (req.method === "GET" && req.url.startsWith("/history")) {
             ? latestData.sampleId
             : null
     });
+}
+
+if (req.method === "POST" && req.url === "/batch") {
+    let body = "";
+
+    req.on("data", chunk => {
+        body += chunk;
+    });
+
+    req.on("end", () => {
+        try {
+            const formData = querystring.parse(body);
+            const rawPayload = formData.payload;
+
+            if (typeof rawPayload !== "string") {
+                return sendJSON(res, 400, {
+                    error: "Missing or invalid payload."
+                });
+            }
+
+            const batch = JSON.parse(rawPayload);
+
+            if (
+                !Array.isArray(batch) ||
+                batch.length === 0 ||
+                batch.length > 100
+            ) {
+                return sendJSON(res, 400, {
+                    error: "Batch must contain between 1 and 100 samples."
+                });
+            }
+
+            // Validate the entire batch before storing anything.
+            for (const data of batch) {
+                if (
+                    data === null ||
+                    typeof data !== "object" ||
+                    Array.isArray(data) ||
+                    typeof data.timestampMs !== "number" ||
+                    !Number.isFinite(data.timestampMs)
+                ) {
+                    return sendJSON(res, 400, {
+                        error: "Invalid telemetry sample in batch."
+                    });
+                }
+            }
+
+            const serverReceivedAtMs = Date.now();
+
+            for (const data of batch) {
+                const sample = {
+                    ...data,
+                    sampleId: nextSampleId++,
+                    serverReceivedAtMs: serverReceivedAtMs,
+                    transportDelayMs:
+                        serverReceivedAtMs - data.timestampMs
+                };
+
+                latestData = sample;
+                telemetryHistory.push(sample);
+
+                stats.received++;
+                stats.totalDelayMs += sample.transportDelayMs;
+                stats.maxDelayMs = Math.max(
+                    stats.maxDelayMs,
+                    sample.transportDelayMs
+                );
+
+                // Measure the time between individual samples
+                // arrival at the server.
+                const receiveHrNs = process.hrtime.bigint();
+
+                if (lastReceiveHrNs !== null) {
+                    const intervalMs = Number(
+                        receiveHrNs - lastReceiveHrNs
+                    ) / 1_000_000;
+
+                    stats.totalIntervalMs += intervalMs;
+                    stats.intervalCount++;
+                    stats.minIntervalMs = Math.min(
+                        stats.minIntervalMs,
+                        intervalMs
+                    );
+                    stats.maxIntervalMs = Math.max(
+                        stats.maxIntervalMs,
+                        intervalMs
+                    );
+                }
+
+                lastReceiveHrNs = receiveHrNs;
+            }
+
+            pruneHistory(serverReceivedAtMs);
+            reportStats(serverReceivedAtMs);
+
+            return sendJSON(res, 200, {
+                ok: true,
+                accepted: batch.length,
+                latestSampleId: latestData.sampleId
+            });
+
+        } catch (error) {
+            console.error("Failed to process telemetry batch:", error.message);
+
+            return sendJSON(res, 400, {
+                error: "Invalid telemetry batch."
+            });
+        }
+    });
+
+    return;
 }
 
 if (req.method === "POST" && req.url === "/test") {
