@@ -4,10 +4,22 @@ import { getTextShadowFast } from 'common/hud-customizer';
 
 //Use Panorama API to enable cl_showpos 1 allowing us to read player's X,Y and Z coordinates from the HUD
  GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
+const COLLECTION_INTERVAL_SECONDS = 0.02;
 
+const BATCH_SIZE = 5;
+const MAX_QUEUE_SIZE = 100;
+
+let telemetryQueue = [];
+let postInFlight = false;
+
+let windowSamples = 0;
+let windowDropped = 0;
+let windowSent = 0;
+let windowStartMs = Date.now();
 
 //Collect the current player state and send it to our local server 
 const ServerPost = () => {
+    const collectionTimestampMs = Date.now();
 
 //Store the player's current position 
 //Set to null because the position may not be available in some states such as during map selection
@@ -90,7 +102,7 @@ if (children.length > 0) {
     //Combine all the collected player/game information into a single object
     //This object will be converted to JSON before being sent to the server
     const data = {
-    timestampMs: Date.now(),
+    timestampMs: collectionTimestampMs,
     runTime: runTimer,
     position: position,
     angles: angles,
@@ -110,29 +122,74 @@ if (children.length > 0) {
     mapName: mapName,
     physicalButtons: physicalButtons
 };
-    //Send collected data to local server 
-    //Data object is converted to JSON and sent as payload
-    $.AsyncWebRequest('http://127.0.0.1:8080/test', {
-    type: 'POST',
-    data: {
-        payload: JSON.stringify(data)
-    },
-    success: () =>{
-        $.Schedule(0, requestLoop);
-    },
-    error: () => {
-        $.Msg("[Telemetry] Post failed. Waiting before retry");
-        $.Schedule(1.0,requestLoop);
-    }
-} as any);
-};
+if (telemetryQueue.length >= MAX_QUEUE_SIZE) {
+    telemetryQueue.shift();
+    windowDropped++;
+}
 
+telemetryQueue.push(data);
+windowSamples++;
+
+sendBatch();
+};
     //Create a loop that continuously sends updated player data to the server
-    const requestLoop = () => {
+ 
+
+const sendBatch = () => {
+
+    if (postInFlight || telemetryQueue.length < BATCH_SIZE) {
+        return;
+    }
+
+    const batch = telemetryQueue.splice(0, BATCH_SIZE);
+
+    postInFlight = true;
+
+    $.AsyncWebRequest('http://127.0.0.1:8080/batch', {
+        type: 'POST',
+        data: {
+            payload: JSON.stringify(batch)
+        },
+        success: () => {
+            postInFlight = false;
+            windowSent += batch.length;
+
+            sendBatch();
+        },
+        error: () => {
+            postInFlight = false;
+            windowDropped += batch.length;
+        }
+    } as any);
+};
+ const requestLoop = () => {
+
     ServerPost();
-    };
-    //Start data collection/sending loop
-    requestLoop();
+
+    const now = Date.now();
+
+    if (now - windowStartMs >= 2000) {
+
+        const elapsedSeconds = (now - windowStartMs) / 1000;
+
+        $.Msg(
+            `[Telemetry] Collection: ${(windowSamples / elapsedSeconds).toFixed(1)} Hz | ` +
+            `Sent: ${windowSent} | ` +
+            `Dropped: ${windowDropped} | ` +
+            `Queue: ${telemetryQueue.length}`
+        );
+
+        windowSamples = 0;
+        windowSent = 0;
+        windowDropped = 0;
+        windowStartMs = now;
+    }
+
+    $.Schedule(COLLECTION_INTERVAL_SECONDS, requestLoop);
+};
+// Start collection
+requestLoop();
+    
 
 @PanelHandler()
 class HudShowPosHandler {
