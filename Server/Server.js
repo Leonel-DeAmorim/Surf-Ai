@@ -6,9 +6,8 @@ const querystring = require("querystring");
 
 //Store latest player data
 let latestData= null;
-let lastReceiveHrNs = null;
-const History_Window_MS = 2 * 60 * 1000;
-const MAX_HISTORY_SAMPLES = 10000;
+const HISTORY_WINDOW_MS = 2000;
+const MAX_HISTORY_SAMPLES = 500;
 const telemetryHistory = [];
 let nextSampleId = 1;
 
@@ -30,9 +29,9 @@ function sendJSON(res, statusCode, data){
 
 
 function pruneHistory(now = Date.now()){
-    const cutoff = now - History_Window_MS;
+    const cutoff = now - HISTORY_WINDOW_MS;
 
-    while(telemetryHistory.length > 0 && telemetryHistory[0].serverReceivedAtMs < cutoff){
+    while(telemetryHistory.length > 0 && telemetryHistory[0].timestampMs < cutoff){
         telemetryHistory.shift();
     }
     while (telemetryHistory.length > MAX_HISTORY_SAMPLES){
@@ -187,9 +186,12 @@ if (req.method === "POST" && req.url === "/batch") {
                         serverReceivedAtMs - data.timestampMs
                 };
 
-                latestData = sample;
-                telemetryHistory.push(sample);
-
+                if(latestData === null || sample.timestampMs >= latestData.timestampMs){
+                    latestData = sample;
+                }
+                if (sample.timestampMs >= serverReceivedAtMs - HISTORY_WINDOW_MS){
+                    telemetryHistory.push(sample);
+                }
                 stats.received++;
                 stats.totalDelayMs += sample.transportDelayMs;
                 stats.maxDelayMs = Math.max(
@@ -197,28 +199,6 @@ if (req.method === "POST" && req.url === "/batch") {
                     sample.transportDelayMs
                 );
 
-                // Measure the time between individual samples
-                // arrival at the server.
-                const receiveHrNs = process.hrtime.bigint();
-
-                if (lastReceiveHrNs !== null) {
-                    const intervalMs = Number(
-                        receiveHrNs - lastReceiveHrNs
-                    ) / 1_000_000;
-
-                    stats.totalIntervalMs += intervalMs;
-                    stats.intervalCount++;
-                    stats.minIntervalMs = Math.min(
-                        stats.minIntervalMs,
-                        intervalMs
-                    );
-                    stats.maxIntervalMs = Math.max(
-                        stats.maxIntervalMs,
-                        intervalMs
-                    );
-                }
-
-                lastReceiveHrNs = receiveHrNs;
             }
 
             pruneHistory(serverReceivedAtMs);
@@ -285,9 +265,13 @@ if (req.method === "POST" && req.url === "/test") {
                     serverReceivedAtMs - data.timestampMs
             };
 
-            latestData = sample;
+            if(latestData === null || sample.timestampMs >= latestData.timestampMs){
+                    latestData = sample;
+                }
 
-            telemetryHistory.push(sample);
+             if (sample.timestampMs >= serverReceivedAtMs - HISTORY_WINDOW_MS){
+                    telemetryHistory.push(sample);
+                }
 
             pruneHistory(serverReceivedAtMs);
 

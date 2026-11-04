@@ -4,7 +4,7 @@ import { getTextShadowFast } from 'common/hud-customizer';
 
 //Use Panorama API to enable cl_showpos 1 allowing us to read player's X,Y and Z coordinates from the HUD
  GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
-const COLLECTION_INTERVAL_SECONDS = 0.02;
+const COLLECTION_INTERVAL_SECONDS = 0.01;
 
 const BATCH_SIZE = 5;
 const MAX_QUEUE_SIZE = 100;
