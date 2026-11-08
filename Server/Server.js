@@ -2,7 +2,7 @@
 const http = require("http");
 //Use querystring module to parse data received in the HTTP request body
 const querystring = require("querystring");
-
+const WebSocket = require("ws");
 
 //Store latest player data
 let latestData= null;
@@ -26,7 +26,24 @@ function sendJSON(res, statusCode, data){
     });
     res.end(JSON.stringify(data));
 }
+function broadcastTelemetry(samples) {
+    if (wss.clients.size === 0) return;
 
+    const message = JSON.stringify({
+        type: "telemetry",
+        samples: samples
+    });
+
+    for (const client of wss.clients) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(message, error => {
+                if (error) {
+                    console.error("WebSocket send error:", error.message);
+                }
+            });
+        }
+    }
+}
 
 function pruneHistory(now = Date.now()){
     const cutoff = now - HISTORY_WINDOW_MS;
@@ -176,7 +193,7 @@ if (req.method === "POST" && req.url === "/batch") {
             }
 
             const serverReceivedAtMs = Date.now();
-
+            const acceptedSamples = [];
             for (const data of batch) {
                 const sample = {
                     ...data,
@@ -185,7 +202,7 @@ if (req.method === "POST" && req.url === "/batch") {
                     transportDelayMs:
                         serverReceivedAtMs - data.timestampMs
                 };
-
+                acceptedSamples.push(sample);
                 if(latestData === null || sample.timestampMs >= latestData.timestampMs){
                     latestData = sample;
                 }
@@ -203,7 +220,7 @@ if (req.method === "POST" && req.url === "/batch") {
 
             pruneHistory(serverReceivedAtMs);
             reportStats(serverReceivedAtMs);
-
+            broadcastTelemetry(acceptedSamples);
             return sendJSON(res, 200, {
                 ok: true,
                 accepted: batch.length,
@@ -264,7 +281,7 @@ if (req.method === "POST" && req.url === "/test") {
                 transportDelayMs:
                     serverReceivedAtMs - data.timestampMs
             };
-
+            broadcastTelemetry([sample]);
             if(latestData === null || sample.timestampMs >= latestData.timestampMs){
                     latestData = sample;
                 }
@@ -283,7 +300,7 @@ if (req.method === "POST" && req.url === "/test") {
             );
 
             reportStats(serverReceivedAtMs);
-
+            broadcastTelemetry([sample]);
             return sendJSON(res, 200, {
                 ok: true,
                 sampleId: sample.sampleId
@@ -306,8 +323,46 @@ if (req.method === "POST" && req.url === "/test") {
     res.writeHead(404);
     res.end("Not found");
 });
+const wss = new WebSocket.Server({ noServer: true });
+
+// Handle WebSocket upgrade requests
+server.on("upgrade", (req, socket, head) => {
+    const pathname = new URL(
+        req.url,
+        "http://127.0.0.1:8080"
+    ).pathname;
+
+    if (pathname !== "/ws") {
+        socket.destroy();
+        return;
+    }
+
+    wss.handleUpgrade(req, socket, head, ws => {
+        wss.emit("connection", ws, req);
+    });
+});
+
+// Handle new Python connections
+wss.on("connection", ws => {
+    console.log("[WebSocket] Python client connected.");
+
+    // Tell Python the latest sample ID so it can avoid old data
+    ws.send(JSON.stringify({
+        type: "connected",
+        latestSampleId: nextSampleId - 1
+    }));
+
+    ws.on("close", () => {
+        console.log("[WebSocket] Python client disconnected.");
+    });
+
+    ws.on("error", error => {
+        console.error("[WebSocket] Error:", error.message);
+    });
+});
 //Start the server on localhost at port 8080
 server.listen(8080, "127.0.0.1", () => {
     //Confirm in the terminal that the server has started successfully
     console.log("Server listening on http://127.0.0.1:8080");
 });
+// Create WebSocket server using the existing HTTP server
