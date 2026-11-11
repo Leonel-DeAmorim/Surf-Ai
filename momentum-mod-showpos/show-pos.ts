@@ -6,8 +6,9 @@ import { getTextShadowFast } from 'common/hud-customizer';
  GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
 const COLLECTION_INTERVAL_SECONDS = 0.01;
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 7;
 const MAX_QUEUE_SIZE = 100;
+const MAX_BATCH_WAIT_MS = 20;
 
 let telemetryQueue = [];
 let postInFlight = false;
@@ -122,30 +123,39 @@ if (children.length > 0) {
     mapName: mapName,
     physicalButtons: physicalButtons
 };
+
+
 if (telemetryQueue.length >= MAX_QUEUE_SIZE) {
     telemetryQueue.shift();
     windowDropped++;
 }
 
-telemetryQueue.push(data);
+telemetryQueue.push({
+    data: data,
+    queuedAtMs: Date.now()
+});
 windowSamples++;
 
 sendBatch();
 };
     //Create a loop that continuously sends updated player data to the server
- 
 
 const sendBatch = () => {
-
-    if (postInFlight || telemetryQueue.length < BATCH_SIZE) {
+    if(postInFlight || telemetryQueue.length === 0){
         return;
     }
+    const oldestQueuedAtMs = telemetryQueue[0].queuedAtMs;
+    const batchExpired = 
+    Date.now() - oldestQueuedAtMs >= MAX_BATCH_WAIT_MS;
 
-    const batch = telemetryQueue.splice(0, BATCH_SIZE);
-
+    if( telemetryQueue.length <BATCH_SIZE && !batchExpired){
+        return;
+    }
+    const queuedBatch = telemetryQueue.splice(0, BATCH_SIZE);
+    const batch = queuedBatch.map(item  => item.data);
     postInFlight = true;
-
-    $.AsyncWebRequest('http://127.0.0.1:8080/batch', {
+    
+    $.AsyncWebRequest('http://127.0.0.1:8080/batch',{
         type: 'POST',
         data: {
             payload: JSON.stringify(batch)
@@ -153,18 +163,21 @@ const sendBatch = () => {
         success: () => {
             postInFlight = false;
             windowSent += batch.length;
-
             sendBatch();
         },
         error: () => {
             postInFlight = false;
             windowDropped += batch.length;
+            sendBatch();
         }
-    } as any);
+    }as any);
 };
+
  const requestLoop = () => {
 
     ServerPost();
+
+    sendBatch();
 
     const now = Date.now();
 
