@@ -7,7 +7,7 @@ import { getTextShadowFast } from 'common/hud-customizer';
 const COLLECTION_INTERVAL_SECONDS = 0.01;
 
 const BATCH_SIZE = 7;
-const MAX_QUEUE_SIZE = 100;
+const MAX_QUEUE_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 20;
 
 let telemetryQueue = [];
@@ -74,15 +74,17 @@ if (children.length > 0) {
     //Get movement wishVel 
     const wishVel = MomentumMovementAPI.GetMoveHudData().wishVel;
     //Get Momentum Timer
-    const runTimer = MomentumTimerAPI.GetObservedTimerStatus().runTime;
+    const timer = MomentumTimerAPI.GetObservedTimerStatus();
+
+    const runTimer = timer.runTime;
     //Get Majornum
-    const majorNum = MomentumTimerAPI.GetObservedTimerStatus().majorNum;
+    const majorNum = timer.majorNum;
     //Get Minor num
-    const minorNum = MomentumTimerAPI.GetObservedTimerStatus().minorNum;
+    const minorNum =timer.minorNum;
     //Get seg countgame
-    const segmentsCount = MomentumTimerAPI.GetObservedTimerStatus().segmentsCount;
+    const segmentsCount = timer.segmentsCount;
     //Get check count
-    const segmentCheckpointsCount  = MomentumTimerAPI.GetObservedTimerStatus().segmentCheckpointsCount;
+    const segmentCheckpointsCount  = timer.segmentCheckpointsCount;
     //Get statistics from the player's previous movement tick 
     const lastTick = MomentumMovementAPI.GetLastTickStats();
     //Get current game time 
@@ -98,7 +100,6 @@ if (children.length > 0) {
     //Get map name
     const mapName = MapCacheAPI.GetMapName();
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z);
-  
 
     //Combine all the collected player/game information into a single object
     //This object will be converted to JSON before being sent to the server
@@ -136,7 +137,6 @@ telemetryQueue.push({
 });
 windowSamples++;
 
-sendBatch();
 };
     //Create a loop that continuously sends updated player data to the server
 
