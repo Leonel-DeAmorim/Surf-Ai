@@ -4,14 +4,16 @@ import { getTextShadowFast } from 'common/hud-customizer';
 
 //Use Panorama API to enable cl_showpos 1 allowing us to read player's X,Y and Z coordinates from the HUD
  GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
-const COLLECTION_INTERVAL_SECONDS = 0.01;
+const COLLECTION_INTERVAL_SECONDS = 0;
 
 const BATCH_SIZE = 7;
 const MAX_QUEUE_SIZE = 50;
 const MAX_BATCH_WAIT_MS = 20;
 
+const MAX_CONCURRENT_REQUESTS = 3;
+let activeRequests = 0;
+
 let telemetryQueue = [];
-let postInFlight = false;
 
 let windowSamples = 0;
 let windowDropped = 0;
@@ -140,37 +142,46 @@ windowSamples++;
 };
     //Create a loop that continuously sends updated player data to the server
 
-const sendBatch = () => {
-    if(postInFlight || telemetryQueue.length === 0){
-        return;
-    }
-    const oldestQueuedAtMs = telemetryQueue[0].queuedAtMs;
-    const batchExpired = 
-    Date.now() - oldestQueuedAtMs >= MAX_BATCH_WAIT_MS;
 
-    if( telemetryQueue.length <BATCH_SIZE && !batchExpired){
-        return;
-    }
-    const queuedBatch = telemetryQueue.splice(0, BATCH_SIZE);
-    const batch = queuedBatch.map(item  => item.data);
-    postInFlight = true;
-    
-    $.AsyncWebRequest('http://127.0.0.1:8080/batch',{
-        type: 'POST',
-        data: {
-            payload: JSON.stringify(batch)
-        },
-        success: () => {
-            postInFlight = false;
-            windowSent += batch.length;
-            sendBatch();
-        },
-        error: () => {
-            postInFlight = false;
-            windowDropped += batch.length;
-            sendBatch();
+const sendBatch = () => {
+    while (
+        activeRequests < MAX_CONCURRENT_REQUESTS &&
+        telemetryQueue.length > 0
+    ) {
+        const oldestQueuedAtMs = telemetryQueue[0].queuedAtMs;
+
+        const batchExpired =
+            Date.now() - oldestQueuedAtMs >= MAX_BATCH_WAIT_MS;
+
+        if (
+            telemetryQueue.length < BATCH_SIZE &&
+            !batchExpired
+        ) {
+            return;
         }
-    }as any);
+
+        const queuedBatch = telemetryQueue.splice(0, BATCH_SIZE);
+        const batch = queuedBatch.map(item => item.data);
+
+        activeRequests++;
+
+        $.AsyncWebRequest('http://127.0.0.1:8080/batch', {
+            type: 'POST',
+            data: {
+                payload: JSON.stringify(batch)
+            },
+            success: () => {
+                activeRequests--;
+                windowSent += batch.length;
+                sendBatch();
+            },
+            error: () => {
+                activeRequests--;
+                windowDropped += batch.length;
+                sendBatch();
+            }
+        } as any);
+    }
 };
 
  const requestLoop = () => {
@@ -189,7 +200,8 @@ const sendBatch = () => {
             `[Telemetry] Collection: ${(windowSamples / elapsedSeconds).toFixed(1)} Hz | ` +
             `Sent: ${windowSent} | ` +
             `Dropped: ${windowDropped} | ` +
-            `Queue: ${telemetryQueue.length}`
+            `Queue: ${telemetryQueue.length}` +
+            `Active Requests: ${activeRequests}`
         );
 
         windowSamples = 0;
