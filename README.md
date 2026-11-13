@@ -17,5 +17,6 @@ A highly optimized Python pipeline that streams real-time player positions (`XYZ
 -Node
 -Open3D
 -CV2
--MSS
+-DXcam
+
 
