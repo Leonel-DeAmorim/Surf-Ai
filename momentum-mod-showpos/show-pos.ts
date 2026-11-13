@@ -6,11 +6,11 @@ import { getTextShadowFast } from 'common/hud-customizer';
  GameInterfaceAPI.ConsoleCommand('cl_showpos 1');
 const COLLECTION_INTERVAL_SECONDS = 0;
 
-const BATCH_SIZE = 7;
+const BATCH_SIZE = 5;
 const MAX_QUEUE_SIZE = 50;
-const MAX_BATCH_WAIT_MS = 20;
+const MAX_BATCH_WAIT_MS = 5;
 
-const MAX_CONCURRENT_REQUESTS = 3;
+const MAX_CONCURRENT_REQUESTS = 15;
 let activeRequests = 0;
 
 let telemetryQueue = [];
