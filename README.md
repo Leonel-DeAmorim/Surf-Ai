@@ -4,12 +4,12 @@ A highly optimized Python pipeline that streams real-time player positions (`XYZ
 
 
 
--Screenshot capture	47–48 FPS	
--Telemetry collection	91–93 Hz	
+-Screenshot capture	~300 FPS	
+-Telemetry collection	300 Hz	
 -Screenshot matching	100%	
 -Average timestamp difference	~2.7 ms	
--Average input readiness	~34.4 ms	
--P95 input readiness	~61.6 ms	
+-Average input readiness	~4.15 ms	
+-P95 input readiness	~6 ms	
 
 
 ## Prerequisites & Installation
