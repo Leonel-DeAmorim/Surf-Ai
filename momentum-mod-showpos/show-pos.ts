@@ -15,10 +15,6 @@ let activeRequests = 0;
 
 let telemetryQueue = [];
 
-let windowSamples = 0;
-let windowDropped = 0;
-let windowSent = 0;
-let windowStartMs = Date.now();
 
 //Collect the current player state and send it to our local server 
 const ServerPost = () => {
@@ -130,15 +126,12 @@ if (children.length > 0) {
 
 if (telemetryQueue.length >= MAX_QUEUE_SIZE) {
     telemetryQueue.shift();
-    windowDropped++;
 }
 
 telemetryQueue.push({
     data: data,
     queuedAtMs: Date.now()
 });
-windowSamples++;
-
 };
     //Create a loop that continuously sends updated player data to the server
 
@@ -172,12 +165,10 @@ const sendBatch = () => {
             },
             success: () => {
                 activeRequests--;
-                windowSent += batch.length;
                 sendBatch();
             },
             error: () => {
                 activeRequests--;
-                windowDropped += batch.length;
                 sendBatch();
             }
         } as any);
@@ -189,26 +180,6 @@ const sendBatch = () => {
     ServerPost();
 
     sendBatch();
-
-    const now = Date.now();
-
-    if (now - windowStartMs >= 2000) {
-
-        const elapsedSeconds = (now - windowStartMs) / 1000;
-
-        $.Msg(
-            `[Telemetry] Collection: ${(windowSamples / elapsedSeconds).toFixed(1)} Hz | ` +
-            `Sent: ${windowSent} | ` +
-            `Dropped: ${windowDropped} | ` +
-            `Queue: ${telemetryQueue.length}` +
-            `Active Requests: ${activeRequests}`
-        );
-
-        windowSamples = 0;
-        windowSent = 0;
-        windowDropped = 0;
-        windowStartMs = now;
-    }
 
     $.Schedule(COLLECTION_INTERVAL_SECONDS, requestLoop);
 };
